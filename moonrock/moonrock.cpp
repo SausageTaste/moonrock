@@ -150,21 +150,22 @@ namespace moonrock {
 
         const auto [min, max] = this->make_min_max();
 
-        for (uint32_t x = min.x; x <= max.x; ++x) {
-            for (uint32_t y = min.y; y < max.y; ++y) {
-                if (::PointInTriangle(vec2{ static_cast<float>(x), static_cast<float>(y) }, this->m_vertices[0], this->m_vertices[1], this->m_vertices[2])) {
+        for (uint32_t x = 0; x < this->m_domain_width; ++x) {
+            for (uint32_t y = 0; y < this->m_domain_height; ++y) {
+                vec2 sample_point{ static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f };
+                if (::PointInTriangle(sample_point, this->m_vertices[0], this->m_vertices[1], this->m_vertices[2])) {
                     output.push_back(tvec2<uint32_t>{x, y});
                 }
                 else {
                     for (const auto& [v0, v1] : left_edges) {
                         // Check if the point is on the line using linear function `y = ax + b`
-                        if ((y - v0.y)*(v0.x - v1.x) == (v0.y - v1.y)*(x - v0.x)) {
+                        if ((sample_point.y - v0.y)*(v0.x - v1.x) == (v0.y - v1.y)*(sample_point.x - v0.x)) {
                             output.push_back(tvec2<uint32_t>{x, y});
                         }
                     }
 
                     for (const auto& [v0, v1] : top_edges) {
-                        if ((y - v0.y)*(v0.x - v1.x) == (v0.y - v1.y)*(x - v0.x)) {
+                        if ((sample_point.y - v0.y)*(v0.x - v1.x) == (v0.y - v1.y)*(sample_point.x - v0.x)) {
                             output.push_back(tvec2<uint32_t>{x, y});
                         }
                     }
@@ -181,25 +182,27 @@ namespace moonrock {
 
     // Private
 
-    std::pair<vec2, vec2> Rasterizer::make_min_max() const {
+    std::pair<uvec2, uvec2> Rasterizer::make_min_max() const {
         vec2 min = this->m_vertices[0];
         vec2 max = this->m_vertices[0];
 
         for (size_t i = 1; i < this->m_vertices.size(); ++i) {
             const auto& v = this->m_vertices[i];
 
-            if (v.x < min.x)
-                min.x = v.x;
-            if (v.y < min.y)
-                min.y = v.y;
+            min.x = std::min<float>(min.x, v.x);
+            min.y = std::min<float>(min.y, v.y);
 
-            if (v.x > max.x)
-                max.x = v.x;
-            if (v.y > max.y)
-                max.y = v.y;
+            max.x = std::max<float>(max.x, v.x);
+            max.y = std::max<float>(max.y, v.y);
         }
 
-        return std::make_pair(min, max);
+        min.x = std::max<float>(min.x, 0);
+        min.y = std::max<float>(min.y, 0);
+
+        max.x = std::min<float>(max.x, this->m_domain_width);
+        max.y = std::min<float>(max.y, this->m_domain_height);
+
+        return std::make_pair(static_cast<uvec2>(min), static_cast<uvec2>(max));
     }
 
 }

@@ -127,7 +127,7 @@ namespace moonrock {
 
     public:
         std::array<vec2, 3> m_vertices;
-        uint32_t domain_width = 0, domain_height = 0;
+        uint32_t m_domain_width = 0, m_domain_height = 0;
 
     public:
         void work(std::vector<uvec2>& output) const;
@@ -135,7 +135,7 @@ namespace moonrock {
         std::vector<uvec2> work() const;
 
     private:
-        std::pair<vec2, vec2> make_min_max() const;
+        std::pair<uvec2, uvec2> make_min_max() const;
 
     };
 
@@ -170,8 +170,8 @@ namespace moonrock {
     public:
         template <typename _PixelTyp>
         void draw(const VertexBuffer& vert_buf, Image2D<_PixelTyp>& output_img) {
-            this->m_rasterizer.domain_width = output_img.width();
-            this->m_rasterizer.domain_height = output_img.height();
+            this->m_rasterizer.m_domain_width = output_img.width();
+            this->m_rasterizer.m_domain_height = output_img.height();
 
             for (size_t i = 0; i < vert_buf.size() / 3; ++i) {
                 this->m_rasterizer.m_vertices[0] = vert_buf.m_vertices[3 * i + 0].m_position.xy();

@@ -11,6 +11,11 @@ namespace moonrock {
         T y = 0;
 
     public:
+        template <typename S>
+        operator tvec2<S>() const {
+            return tvec2<S>{ static_cast<S>(this->x), static_cast<S>(this->y) };
+        }
+
         tvec2<T> operator+(const tvec2<T> other) const {
             return tvec2<T>{ this->x + other.x, this->y + other.y };
         }
