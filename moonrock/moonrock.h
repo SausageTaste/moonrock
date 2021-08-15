@@ -14,12 +14,22 @@ namespace moonrock {
         T y = 0;
 
     public:
-        tvec2<T> operator+(tvec2<T> other) const {
+        tvec2<T> operator+(const tvec2<T> other) const {
             return tvec2<T>{ this->x + other.x, this->y + other.y };
         }
 
-        tvec2<T> operator-(tvec2<T> other) const {
+        tvec2<T> operator-(const tvec2<T> other) const {
             return tvec2<T>{ this->x - other.x, this->y - other.y };
+        }
+
+        template <typename _FactorTyp>
+        tvec2<T> operator*(const _FactorTyp factor) const {
+            return tvec2<T>{ this->x * factor, this->y * factor };
+        }
+
+        template <typename _FactorTyp>
+        tvec2<T> operator/(const _FactorTyp factor) const {
+            return tvec2<T>{ this->x / factor, this->y / factor };
         }
 
         tvec2<T> rotate_cw_90() const {
@@ -28,6 +38,18 @@ namespace moonrock {
 
         tvec2<T> rotate_ccw_90() const {
             return tvec2<T>{ -y, x };
+        }
+
+        float length_sqr() const {
+            return x*x + y+y;
+        }
+
+        float length() const {
+            return sqrt(this->length_sqr());
+        }
+
+        tvec2<T> normalize() const {
+            return this->operator/(this->length());
         }
 
         auto dot(tvec2<T> other) const {
@@ -221,19 +243,64 @@ namespace moonrock {
             return std::make_pair(min, max);
         }
 
-        bool is_pix_inside(const float x, const float y) const {
-            return this->PointInTriangle(vec2{ x, y }, this->m_vertices[0], this->m_vertices[1], this->m_vertices[2]);
-        }
-
         void work(std::vector<tvec2<uint32_t>>& output) const {
             output.clear();
+
+            const std::array<vec2, 3> edges{
+                this->m_vertices[1] - this->m_vertices[0],
+                this->m_vertices[2] - this->m_vertices[1],
+                this->m_vertices[0] - this->m_vertices[2],
+            };
+
+            const std::array<vec2, 3> edges_normalized{
+                edges[0].normalize(),
+                edges[1].normalize(),
+                edges[2].normalize(),
+            };
+
+            const std::array<vec2, 3> edges_normalized_ccw{
+                edges_normalized[0].rotate_ccw_90(),
+                edges_normalized[1].rotate_ccw_90(),
+                edges_normalized[2].rotate_ccw_90(),
+            };
+
+            std::vector<std::pair<vec2, vec2>> left_edges;
+            std::vector<std::pair<vec2, vec2>> top_edges;
+
+            for (size_t i = 0; i < 3; ++i) {
+                const auto v0 = this->m_vertices[i];
+                const auto v1 = this->m_vertices[(i + 1) % 3];
+                const auto e_n_ccw = edges_normalized_ccw[i];
+
+                if (e_n_ccw.dot(vec2{-1, 0}) > 0) {
+                    left_edges.push_back(std::make_pair(v0, v1));
+                }
+
+                if (e_n_ccw.dot(vec2{0, -1}) == 1) {
+                    top_edges.push_back(std::make_pair(v0, v1));
+                }
+            }
 
             const auto [min, max] = this->make_min_max();
 
             for (uint32_t x = min.x; x <= max.x; ++x) {
                 for (uint32_t y = min.y; y < max.y; ++y) {
-                    if (this->is_pix_inside(x, y)) {
+                    if (this->PointInTriangle(vec2{ static_cast<float>(x), static_cast<float>(y) }, this->m_vertices[0], this->m_vertices[1], this->m_vertices[2])) {
                         output.push_back(tvec2<uint32_t>{x, y});
+                    }
+                    else {
+                        for (const auto& [v0, v1] : left_edges) {
+                            // Check if the point is on the line using linear function `y = ax + b`
+                            if ((y - v0.y)*(v0.x - v1.x) == (v0.y - v1.y)*(x - v0.x)) {
+                                output.push_back(tvec2<uint32_t>{x, y});
+                            }
+                        }
+
+                        for (const auto& [v0, v1] : top_edges) {
+                            if ((y - v0.y)*(v0.x - v1.x) == (v0.y - v1.y)*(x - v0.x)) {
+                                output.push_back(tvec2<uint32_t>{x, y});
+                            }
+                        }
                     }
                 }
             }
@@ -259,8 +326,8 @@ namespace moonrock {
             d2 = sign(pt, v2, v3);
             d3 = sign(pt, v3, v1);
 
-            has_neg = (d1 < 0) || (d2 < 0) || (d3 < 0);
-            has_pos = (d1 > 0) || (d2 > 0) || (d3 > 0);
+            has_neg = (d1 <= 0) || (d2 <= 0) || (d3 <= 0);
+            has_pos = (d1 >= 0) || (d2 >= 0) || (d3 >= 0);
 
             return !(has_neg && has_pos);
         }
