@@ -23,5 +23,6 @@ int main() {
     shader.draw(vbuf, img);
 
     std::cout << moonrock::export_image_to_disk("C:\\Users\\woos8\\Downloads\\output.png", img) << std::endl;
+    system("C:\\Users\\woos8\\Downloads\\output.png");
     return 0;
 }
