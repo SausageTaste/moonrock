@@ -76,6 +76,11 @@ namespace moonrock {
         T z = 0;
         T w = 0;
 
+    public:
+        tvec2<T> xy() const {
+            return tvec2<T>{ this->x, this->y };
+        }
+
     private:
         friend std::ostream& operator<<(std::ostream& os, const moonrock::tvec4<T>& obj) {
             os << "{" << obj.x << ", " << obj.y << ", " << obj.z << ", " << obj.w << "}";
@@ -87,6 +92,8 @@ namespace moonrock {
     using vec4 = tvec4<float>;
 
 
+    class Pixel4Float32;
+
     class Pixel4Uint8 : protected tvec4<uint8_t> {
 
     public:
@@ -96,6 +103,8 @@ namespace moonrock {
             this->z = 0;
             this->w = 255;
         }
+
+        operator Pixel4Float32() const;
 
         void set_color_x(const float value) {
             this->x = static_cast<uint8_t>(std::min<float>(value, 1) * 255);
@@ -126,11 +135,20 @@ namespace moonrock {
     class Pixel4Float32 : protected tvec4<float> {
 
     public:
+        using tvec4<float>::tvec4;
+        using tvec4<float>::operator=;
+
         Pixel4Float32() {
             this->x = 0;
             this->y = 0;
             this->z = 0;
             this->w = 1;
+        }
+
+        operator Pixel4Uint8() const {
+            Pixel4Uint8 output;
+            output.set_color_xyzw(this->x, this->y, this->z, this->w);
+            return output;
         }
 
         void set_color_x(const float value) {
@@ -330,6 +348,53 @@ namespace moonrock {
             has_pos = (d1 >= 0) || (d2 >= 0) || (d3 >= 0);
 
             return !(has_neg && has_pos);
+        }
+
+    };
+
+
+    class Vertex {
+
+    public:
+        vec4 m_position;
+        Pixel4Float32 m_color;
+
+    };
+
+
+    class VertexBuffer {
+
+    public:
+        std::vector<Vertex> m_vertices;
+
+    public:
+        size_t size() const {
+            return this->m_vertices.size();
+        }
+
+    };
+
+
+    class Shader {
+
+    private:
+        Rasterizer m_rasterizer;
+
+    public:
+        template <typename _PixelTyp>
+        void draw(const VertexBuffer& vert_buf, Image2D<_PixelTyp>& output_img) {
+            this->m_rasterizer.domain_width = output_img.width();
+            this->m_rasterizer.domain_height = output_img.height();
+
+            for (size_t i = 0; i < vert_buf.size() / 3; ++i) {
+                this->m_rasterizer.m_vertices[0] = vert_buf.m_vertices[3 * i + 0].m_position.xy();
+                this->m_rasterizer.m_vertices[1] = vert_buf.m_vertices[3 * i + 1].m_position.xy();
+                this->m_rasterizer.m_vertices[2] = vert_buf.m_vertices[3 * i + 2].m_position.xy();
+
+                for (auto v : this->m_rasterizer.work()) {
+                    output_img.pixel(v.x, v.y) = static_cast<_PixelTyp>(vert_buf.m_vertices[3 * i + 0].m_color);
+                }
+            }
         }
 
     };
