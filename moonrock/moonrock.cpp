@@ -3,11 +3,13 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
 
+#include "math_tool.h"
+
 
 // https://stackoverflow.com/a/2049593/6819534
 namespace {
 
-    using fPoint = moonrock::vec2;
+    using fPoint = glm::vec2;
 
     float sign (fPoint p1, fPoint p2, fPoint p3) {
         return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
@@ -33,26 +35,46 @@ namespace {
 // Pixel4Uint8
 namespace moonrock {
 
+    Pixel4Uint8::Pixel4Uint8() {
+        this->m_color = glm::uvec4{0, 0, 0, 255};
+    }
+
     Pixel4Uint8::operator Pixel4Float32() const {
         Pixel4Float32 output;
-        output.set_color_xyzw(this->x, this->y, this->z, this->w);
+        output.set_color_xyzw(this->color_x(), this->color_y(), this->color_z(), this->color_w());
         return output;
     }
 
+    float Pixel4Uint8::color_x() const {
+        return static_cast<float>(this->m_color.x) / 255.f;
+    }
+
+    float Pixel4Uint8::color_y() const {
+        return static_cast<float>(this->m_color.y) / 255.f;
+    }
+
+    float Pixel4Uint8::color_z() const {
+        return static_cast<float>(this->m_color.z) / 255.f;
+    }
+
+    float Pixel4Uint8::color_w() const {
+        return static_cast<float>(this->m_color.w) / 255.f;
+    }
+
     void Pixel4Uint8::set_color_x(const float value) {
-        this->x = static_cast<uint8_t>(std::min<float>(value, 1) * 255);
+        this->m_color.x = static_cast<uint8_t>(std::min<float>(value, 1) * 255);
     }
 
     void Pixel4Uint8::set_color_y(const float value) {
-        this->y = static_cast<uint8_t>(std::min<float>(value, 1) * 255);
+        this->m_color.y = static_cast<uint8_t>(std::min<float>(value, 1) * 255);
     }
 
     void Pixel4Uint8::set_color_z(const float value) {
-        this->z = static_cast<uint8_t>(std::min<float>(value, 1) * 255);
+        this->m_color.z = static_cast<uint8_t>(std::min<float>(value, 1) * 255);
     }
 
     void Pixel4Uint8::set_color_w(const float value) {
-        this->w = static_cast<uint8_t>(std::min<float>(value, 1) * 255);
+        this->m_color.w = static_cast<uint8_t>(std::min<float>(value, 1) * 255);
     }
 
     void Pixel4Uint8::set_color_xyzw(const float x, const float y, const float z, const float w) {
@@ -69,32 +91,29 @@ namespace moonrock {
 namespace moonrock {
 
     Pixel4Float32::Pixel4Float32() {
-        this->x = 0;
-        this->y = 0;
-        this->z = 0;
-        this->w = 1;
+        this->m_color = glm::vec4{0, 0, 0, 1};
     }
 
     Pixel4Float32::operator Pixel4Uint8() const {
         Pixel4Uint8 output;
-        output.set_color_xyzw(this->x, this->y, this->z, this->w);
+        output.set_color_xyzw(this->color_x(), this->color_y(), this->color_z(), this->color_w());
         return output;
     }
 
     void Pixel4Float32::set_color_x(const float value) {
-        this->x = value;
+        this->m_color.x = value;
     }
 
     void Pixel4Float32::set_color_y(const float value) {
-        this->y = value;
+        this->m_color.y = value;
     }
 
     void Pixel4Float32::set_color_z(const float value) {
-        this->z = value;
+        this->m_color.z = value;
     }
 
     void Pixel4Float32::set_color_w(const float value) {
-        this->w = value;
+        this->m_color.w = value;
     }
 
     void Pixel4Float32::set_color_xyzw(const float x, const float y, const float z, const float w) {
@@ -110,40 +129,41 @@ namespace moonrock {
 // Rasterizer
 namespace moonrock {
 
-    void Rasterizer::work(std::vector<uvec2>& output) const {
+    void Rasterizer::work(std::vector<glm::uvec2>& output) const {
         output.clear();
 
-        const std::array<vec2, 3> edges{
+        const std::array<glm::vec2, 3> edges{
             this->m_vertices[1] - this->m_vertices[0],
             this->m_vertices[2] - this->m_vertices[1],
             this->m_vertices[0] - this->m_vertices[2],
         };
 
-        const std::array<vec2, 3> edges_normalized{
-            edges[0].normalize(),
-            edges[1].normalize(),
-            edges[2].normalize(),
+        const std::array<glm::vec2, 3> edges_normalized{
+            glm::normalize(edges[0]),
+            glm::normalize(edges[1]),
+            glm::normalize(edges[2]),
         };
 
-        const std::array<vec2, 3> edges_normalized_ccw{
-            edges_normalized[0].rotate_ccw_90(),
-            edges_normalized[1].rotate_ccw_90(),
-            edges_normalized[2].rotate_ccw_90(),
+        const std::array<glm::vec2, 3> edges_normalized_ccw{
+            rotate_vec2_ccw_90(edges_normalized[0]),
+            rotate_vec2_ccw_90(edges_normalized[1]),
+            rotate_vec2_ccw_90(edges_normalized[2]),
+
         };
 
-        std::vector<std::pair<vec2, vec2>> left_edges;
-        std::vector<std::pair<vec2, vec2>> top_edges;
+        std::vector<std::pair<glm::vec2, glm::vec2>> left_edges;
+        std::vector<std::pair<glm::vec2, glm::vec2>> top_edges;
 
         for (size_t i = 0; i < 3; ++i) {
             const auto v0 = this->m_vertices[i];
             const auto v1 = this->m_vertices[(i + 1) % 3];
             const auto e_n_ccw = edges_normalized_ccw[i];
 
-            if (e_n_ccw.dot(vec2{-1, 0}) > 0) {
+            if (glm::dot(e_n_ccw, glm::vec2{-1, 0}) > 0.f) {
                 left_edges.push_back(std::make_pair(v0, v1));
             }
 
-            if (e_n_ccw.dot(vec2{0, -1}) == 1) {
+            if (glm::dot(e_n_ccw, glm::vec2{0, -1}) == 1.f) {
                 top_edges.push_back(std::make_pair(v0, v1));
             }
         }
@@ -152,21 +172,21 @@ namespace moonrock {
 
         for (uint32_t x = 0; x < this->m_domain_width; ++x) {
             for (uint32_t y = 0; y < this->m_domain_height; ++y) {
-                vec2 sample_point{ static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f };
+                glm::vec2 sample_point{ static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f };
                 if (::PointInTriangle(sample_point, this->m_vertices[0], this->m_vertices[1], this->m_vertices[2])) {
-                    output.push_back(tvec2<uint32_t>{x, y});
+                    output.push_back(glm::uvec2{x, y});
                 }
                 else {
                     for (const auto& [v0, v1] : left_edges) {
                         // Check if the point is on the line using linear function `y = ax + b`
                         if ((sample_point.y - v0.y)*(v0.x - v1.x) == (v0.y - v1.y)*(sample_point.x - v0.x)) {
-                            output.push_back(tvec2<uint32_t>{x, y});
+                            output.push_back(glm::uvec2{x, y});
                         }
                     }
 
                     for (const auto& [v0, v1] : top_edges) {
                         if ((sample_point.y - v0.y)*(v0.x - v1.x) == (v0.y - v1.y)*(sample_point.x - v0.x)) {
-                            output.push_back(tvec2<uint32_t>{x, y});
+                            output.push_back(glm::uvec2{x, y});
                         }
                     }
                 }
@@ -174,17 +194,17 @@ namespace moonrock {
         }
     }
 
-    std::vector<uvec2> Rasterizer::work() const {
-        std::vector<tvec2<uint32_t>> output;
+    std::vector<glm::uvec2> Rasterizer::work() const {
+        std::vector<glm::uvec2> output;
         this->work(output);
         return output;
     }
 
     // Private
 
-    std::pair<uvec2, uvec2> Rasterizer::make_min_max() const {
-        vec2 min = this->m_vertices[0];
-        vec2 max = this->m_vertices[0];
+    std::pair<glm::uvec2, glm::uvec2> Rasterizer::make_min_max() const {
+        glm::vec2 min = this->m_vertices[0];
+        glm::vec2 max = this->m_vertices[0];
 
         for (size_t i = 1; i < this->m_vertices.size(); ++i) {
             const auto& v = this->m_vertices[i];
@@ -202,7 +222,7 @@ namespace moonrock {
         max.x = std::min<float>(max.x, this->m_domain_width);
         max.y = std::min<float>(max.y, this->m_domain_height);
 
-        return std::make_pair(static_cast<uvec2>(min), static_cast<uvec2>(max));
+        return std::make_pair(static_cast<glm::uvec2>(min), static_cast<glm::uvec2>(max));
     }
 
 }
@@ -211,7 +231,7 @@ namespace moonrock {
 namespace moonrock {
 
     bool export_image_to_disk(const char* const output_path, const ImageUint2D& img) {
-        assert(4 == sizeof(Pixel4Uint8));
+        static_assert(4 == sizeof(Pixel4Uint8));
         return 0 != stbi_write_png(output_path, img.width(), img.height(), 4, img.data(), img.height() * 4);
     }
 

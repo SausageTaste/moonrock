@@ -1,9 +1,11 @@
+#pragma once
+
 #include <array>
 #include <vector>
 #include <cstdint>
 #include <iostream>
 
-#include "math_tool.h"
+#include <glm/glm.hpp>
 
 
 namespace moonrock {
@@ -11,17 +13,23 @@ namespace moonrock {
     class Pixel4Float32;
 
 
-    class Pixel4Uint8 : protected tvec4<uint8_t> {
+    class Pixel4Uint8 {
+
+    private:
+        glm::tvec4<uint8_t> m_color;
 
     public:
-        Pixel4Uint8() {
-            this->x = 0;
-            this->y = 0;
-            this->z = 0;
-            this->w = 255;
-        }
+        Pixel4Uint8();
 
         operator Pixel4Float32() const;
+
+        float color_x() const;
+
+        float color_y() const;
+
+        float color_z() const;
+
+        float color_w() const;
 
         void set_color_x(const float value);
 
@@ -36,15 +44,35 @@ namespace moonrock {
     };
 
 
-    class Pixel4Float32 : protected tvec4<float> {
+    class Pixel4Float32 {
+
+    private:
+        glm::vec4 m_color;
 
     public:
-        using tvec4<float>::tvec4;
-        using tvec4<float>::operator=;
-
         Pixel4Float32();
 
         operator Pixel4Uint8() const;
+
+        void operator=(const glm::vec4 v) {
+            this->m_color = v;
+        }
+
+        float color_x() const {
+            return this->m_color.x;
+        }
+
+        float color_y() const {
+            return this->m_color.y;
+        }
+
+        float color_z() const {
+            return this->m_color.z;
+        }
+
+        float color_w() const {
+            return this->m_color.w;
+        }
 
         void set_color_x(const float value);
 
@@ -91,7 +119,7 @@ namespace moonrock {
             return this->m_data[this->calc_index(x, y)];
         }
 
-        auto& pixel(const uvec2 v) {
+        auto& pixel(const glm::uvec2 v) {
             return this->pixel(v.x, v.y);
         }
 
@@ -99,7 +127,7 @@ namespace moonrock {
             return this->m_data[this->calc_index(x, y)];
         }
 
-        auto& pixel(const uvec2 v) const {
+        auto& pixel(const glm::uvec2 v) const {
             return this->pixel(v.x, v.y);
         }
 
@@ -126,16 +154,16 @@ namespace moonrock {
     class Rasterizer {
 
     public:
-        std::array<vec2, 3> m_vertices;
+        std::array<glm::vec2, 3> m_vertices;
         uint32_t m_domain_width = 0, m_domain_height = 0;
 
     public:
-        void work(std::vector<uvec2>& output) const;
+        void work(std::vector<glm::uvec2>& output) const;
 
-        std::vector<uvec2> work() const;
+        std::vector<glm::uvec2> work() const;
 
     private:
-        std::pair<uvec2, uvec2> make_min_max() const;
+        std::pair<glm::uvec2, glm::uvec2> make_min_max() const;
 
     };
 
@@ -143,7 +171,7 @@ namespace moonrock {
     class Vertex {
 
     public:
-        vec3 m_position;
+        glm::vec3 m_position;
         Pixel4Float32 m_color;
 
     };
@@ -174,9 +202,9 @@ namespace moonrock {
             this->m_rasterizer.m_domain_height = output_img.height();
 
             for (size_t i = 0; i < vert_buf.size() / 3; ++i) {
-                this->m_rasterizer.m_vertices[0] = vert_buf.m_vertices[3 * i + 0].m_position.xy();
-                this->m_rasterizer.m_vertices[1] = vert_buf.m_vertices[3 * i + 1].m_position.xy();
-                this->m_rasterizer.m_vertices[2] = vert_buf.m_vertices[3 * i + 2].m_position.xy();
+                this->m_rasterizer.m_vertices[0] = vert_buf.m_vertices[3 * i + 0].m_position;
+                this->m_rasterizer.m_vertices[1] = vert_buf.m_vertices[3 * i + 1].m_position;
+                this->m_rasterizer.m_vertices[2] = vert_buf.m_vertices[3 * i + 2].m_position;
 
                 for (auto v : this->m_rasterizer.work()) {
                     output_img.pixel(v) = static_cast<_PixelTyp>(vert_buf.m_vertices[3 * i + 0].m_color);

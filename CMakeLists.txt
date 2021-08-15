@@ -8,11 +8,17 @@ project(moonrock
 
 
 FetchContent_Declare(
-    fetch_stb
+    fetch_moonrock_stb
     GIT_REPOSITORY https://github.com/nothings/stb
 )
 
-FetchContent_MakeAvailable(fetch_stb)
+FetchContent_Declare(
+    fetch_moonrock_glm
+    GIT_REPOSITORY https://github.com/g-truc/glm
+)
+
+FetchContent_MakeAvailable(fetch_moonrock_stb)
+FetchContent_MakeAvailable(fetch_moonrock_glm)
 
 
 add_subdirectory(moonrock)
