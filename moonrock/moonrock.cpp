@@ -170,8 +170,8 @@ namespace moonrock {
 
         const auto [min, max] = this->make_min_max();
 
-        for (uint32_t x = 0; x < this->m_domain_width; ++x) {
-            for (uint32_t y = 0; y < this->m_domain_height; ++y) {
+        for (uint32_t x = min.x; x < max.x; ++x) {
+            for (uint32_t y = min.y; y < max.y; ++y) {
                 glm::vec2 sample_point{ static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f };
                 if (::PointInTriangle(sample_point, this->m_vertices[0], this->m_vertices[1], this->m_vertices[2])) {
                     output.push_back(glm::uvec2{x, y});

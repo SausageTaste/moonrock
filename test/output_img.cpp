@@ -8,7 +8,7 @@ int main() {
     moonrock::VertexBuffer vbuf;
     moonrock::Shader shader;
 
-    moonrock::gen_mesh_quad(vbuf.m_vertices, glm::vec3{200, 30, 0}, glm::vec3{120, 600, 0}, glm::vec3{600, 80, 0}, glm::vec3{600, 50, 0});
+    moonrock::gen_mesh_quad(vbuf.m_vertices, glm::vec3{-1, -1, 0}, glm::vec3{-1, 1, 0}, glm::vec3{1, 1, 0}, glm::vec3{1, -1, 0});
 
     shader.draw(vbuf, img);
 

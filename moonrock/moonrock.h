@@ -6,6 +6,7 @@
 #include <iostream>
 
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include "mesh.h"
 
@@ -190,14 +191,25 @@ namespace moonrock {
             this->m_rasterizer.m_domain_height = output_img.height();
 
             for (size_t i = 0; i < vert_buf.size() / 3; ++i) {
-                this->m_rasterizer.m_vertices[0] = vert_buf.m_vertices[3 * i + 0].m_position;
-                this->m_rasterizer.m_vertices[1] = vert_buf.m_vertices[3 * i + 1].m_position;
-                this->m_rasterizer.m_vertices[2] = vert_buf.m_vertices[3 * i + 2].m_position;
+                this->m_rasterizer.m_vertices[0] = this->transform_vertex(vert_buf.m_vertices[3 * i + 0].m_position, output_img.width(), output_img.height());
+                this->m_rasterizer.m_vertices[1] = this->transform_vertex(vert_buf.m_vertices[3 * i + 1].m_position, output_img.width(), output_img.height());
+                this->m_rasterizer.m_vertices[2] = this->transform_vertex(vert_buf.m_vertices[3 * i + 2].m_position, output_img.width(), output_img.height());
 
                 for (auto v : this->m_rasterizer.work()) {
                     output_img.pixel(v).set_color_xyzw(1, 1, 0, 1);
                 }
             }
+        }
+
+    private:
+        static glm::vec2 transform_vertex(const glm::vec3& v, const float width, const float height) {
+            const auto model_mat = glm::rotate(glm::mat4{1}, glm::radians<float>(30), glm::vec3{0, 1, 0});
+            const auto view_mat = glm::translate(glm::mat4{1}, glm::vec3{0, 0, -3});
+            const auto proj_mat = glm::perspective<float>(glm::radians<float>(90), 1, 0.1, 100);
+            const auto result = proj_mat * view_mat * model_mat * glm::vec4{v, 1};
+            const auto in_device_space = glm::vec2{ result.x / result.w, result.y / result.w };
+            const auto output = glm::vec2{ (in_device_space.x * 0.5 + 0.5) * width, (in_device_space.y * 0.5 + 0.5) * height };
+            return output;
         }
 
     };
