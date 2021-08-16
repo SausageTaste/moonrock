@@ -7,6 +7,8 @@
 
 #include <glm/glm.hpp>
 
+#include "mesh.h"
+
 
 namespace moonrock {
 
@@ -40,6 +42,10 @@ namespace moonrock {
         void set_color_w(const float value);
 
         void set_color_xyzw(const float x, const float y, const float z, const float w);
+
+        void set_color_xyzw(const glm::vec4& v) {
+            this->set_color_xyzw(v.x, v.y, v.z, v.w);
+        }
 
     };
 
@@ -83,6 +89,10 @@ namespace moonrock {
         void set_color_w(const float value);
 
         void set_color_xyzw(const float x, const float y, const float z, const float w);
+
+        void set_color_xyzw(const glm::vec4& v) {
+            this->set_color_xyzw(v.x, v.y, v.z, v.w);
+        }
 
     };
 
@@ -168,28 +178,6 @@ namespace moonrock {
     };
 
 
-    class Vertex {
-
-    public:
-        glm::vec3 m_position;
-        Pixel4Float32 m_color;
-
-    };
-
-
-    class VertexBuffer {
-
-    public:
-        std::vector<Vertex> m_vertices;
-
-    public:
-        size_t size() const {
-            return this->m_vertices.size();
-        }
-
-    };
-
-
     class Shader {
 
     private:
@@ -207,7 +195,7 @@ namespace moonrock {
                 this->m_rasterizer.m_vertices[2] = vert_buf.m_vertices[3 * i + 2].m_position;
 
                 for (auto v : this->m_rasterizer.work()) {
-                    output_img.pixel(v) = static_cast<_PixelTyp>(vert_buf.m_vertices[3 * i + 0].m_color);
+                    output_img.pixel(v).set_color_xyzw(1, 1, 0, 1);
                 }
             }
         }
