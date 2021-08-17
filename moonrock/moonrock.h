@@ -334,7 +334,7 @@ namespace moonrock {
         void draw(const VertexBuffer& vert_buf, const ImageUint2D& albedo_map, ImageUint2D& output_img, Image2D<Pixel1Float32>& depth_map);
 
     private:
-        static glm::vec3 transform_vertex(const glm::vec3& v, const float seed);
+        static glm::vec4 transform_vertex(const glm::vec3& v, const float seed);
 
     };
 

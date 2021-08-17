@@ -42,6 +42,17 @@ namespace {
 }
 
 
+namespace {
+
+    glm::vec3 correct_barycentric_coords_perspective(const glm::vec3& barycentric, const float w0, const float w1, const float w2) {
+        glm::vec3 output{ barycentric[0] * w0, barycentric[1] * w1, barycentric[2] * w2 };
+        output /= (output.x + output.y + output.z);
+        return output;
+    }
+
+}
+
+
 // Pixel1Uint8
 namespace moonrock {
 
@@ -351,12 +362,13 @@ namespace moonrock {
             this->m_rasterizer.m_vertices[2] = glm::vec2{ (v2.x * half_width + half_width), (v2.y * half_height + half_height) };
             this->m_rasterizer.work(rasterized);
 
-            for (auto v : rasterized) {
+            for (const auto& v : rasterized) {
+                const auto barycentric_perspective = ::correct_barycentric_coords_perspective(v.m_barycentric_coords, v0.w, v1.w, v2.w);
                 const auto current_depth = 1.f / interpolate_barycentric(1.f / v0.z, 1.f / v1.z, 1.f / v2.z, v.m_barycentric_coords);
                 auto& depth_pixel = depth_map.pixel(v.m_coord);
 
                 if (current_depth < depth_pixel.color()) {
-                    const auto current_uv_coord = interpolate_barycentric(p0.m_uv_coord, p1.m_uv_coord, p2.m_uv_coord, v.m_barycentric_coords);
+                    const auto current_uv_coord = interpolate_barycentric(p0.m_uv_coord, p1.m_uv_coord, p2.m_uv_coord, barycentric_perspective);
                     const auto current_albedo = albedo_map.sample_bilinear(current_uv_coord);
                     output_img.pixel(v.m_coord).set_color_xyzw(current_albedo);
                     depth_pixel = current_depth;
@@ -365,13 +377,19 @@ namespace moonrock {
         }
     }
 
-    glm::vec3 Shader::transform_vertex(const glm::vec3& v, const float seed) {
-        const auto model_mat = glm::rotate(glm::mat4{1}, glm::radians<float>(seed * 10), glm::vec3{0, 1, 0});
-        const auto view_mat = glm::translate(glm::mat4{1}, glm::vec3{0, 0, -3});
+    glm::vec4 Shader::transform_vertex(const glm::vec3& v, const float seed) {
+        const glm::mat4 identity{1};
+        const auto model_mat = glm::rotate(identity, glm::radians<float>(seed * 10), glm::vec3{0, 1, 0});
+        const auto view_mat = glm::translate(identity, glm::vec3{0, 0, -3});
         const auto proj_mat = glm::perspective<float>(glm::radians(90.f), 1.f, 0.1f, 100.f);
-        const auto transformed = proj_mat * view_mat * model_mat * glm::vec4{v, 1};
-        const auto perspective_devided = glm::vec3{ transformed } / transformed.w;
-        return perspective_devided;
+
+        auto transformed = proj_mat * view_mat * model_mat * glm::vec4{v, 1};
+        transformed.w = 1.f / transformed.w;
+        transformed.x *= transformed.w;
+        transformed.y *= transformed.w;
+        transformed.z *= transformed.w;
+
+        return transformed;
     }
 
 }
