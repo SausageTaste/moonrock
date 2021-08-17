@@ -223,7 +223,7 @@ namespace moonrock {
         }
 
         glm::vec4 sample_nearest(const float x, const float y) const {
-            return this->m_data[this->calc_index(x * this->width(), y * this->height())].color_xyzw();
+            return this->m_data[this->calc_index(x * (this->width() - 1), y * (this->height() - 1))].color_xyzw();
         }
 
         glm::vec4 sample_nearest(const glm::vec2& coords) const {
