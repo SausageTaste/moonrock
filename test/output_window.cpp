@@ -390,7 +390,6 @@ int main() {
     moonrock::Shader shader;
 
     const auto texture = ::load_image_from_disk("C:\\Users\\woos8\\Downloads\\albedo_map.jpg");
-    depth_map.fill(moonrock::Pixel1Float32{1});
 
     moonrock::gen_mesh_quad(vbuf.m_vertices, glm::vec3{-1, -1, 0}, glm::vec3{-1, 1, 0}, glm::vec3{1, 1, 0}, glm::vec3{1, -1, 0});
     moonrock::gen_mesh_quad(vbuf.m_vertices, glm::vec3{0, -1 + 0.3, -1}, glm::vec3{0, 1 + 0.3, -1}, glm::vec3{0, 1 + 0.3, 1}, glm::vec3{0, -1 + 0.3, 1});
@@ -398,10 +397,13 @@ int main() {
     ::Timer timer;
 
     do {
-        if (timer.elapsed() > 0.2) {
+        if (timer.elapsed() > (1.0 / 60.0)) {
             timer.check();
+
             color_buffer.fill(moonrock::Pixel4Uint8(0, 0, 0, 1));
+            depth_map.fill(moonrock::Pixel1Float32{1});
             shader.draw(vbuf, texture, color_buffer, depth_map);
+
             renderer.set_image(color_buffer);
         }
 

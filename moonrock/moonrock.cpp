@@ -41,7 +41,7 @@ namespace {
     T get_cur_sec() {
         const auto a = std::chrono::high_resolution_clock::now();
         const auto b = std::chrono::time_point_cast<std::chrono::nanoseconds>(a);
-        const auto c = static_cast<T>(b.time_since_epoch().count()) / 1'000'000.0;
+        const auto c = static_cast<T>(b.time_since_epoch().count()) / 1'000'000'000.0;
         return c;
     }
 
@@ -365,7 +365,7 @@ namespace moonrock {
     }
 
     glm::vec3 Shader::transform_vertex(const glm::vec3& v, const float seed) {
-        const auto model_mat = glm::rotate(glm::mat4{1}, glm::radians<float>(seed), glm::vec3{0, 1, 0});
+        const auto model_mat = glm::rotate(glm::mat4{1}, glm::radians<float>(seed * 10), glm::vec3{0, 1, 0});
         const auto view_mat = glm::translate(glm::mat4{1}, glm::vec3{0, 0, -3});
         const auto proj_mat = glm::perspective<float>(glm::radians<float>(90), 1, 0.1, 100);
         const auto transformed = proj_mat * view_mat * model_mat * glm::vec4{v, 1};
