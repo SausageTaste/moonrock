@@ -11,6 +11,7 @@
 #include <stb_image_write.h>
 
 
+#include "utils.h"
 #include "math_tool.h"
 
 
@@ -35,14 +36,6 @@ namespace {
         has_pos = (d1 >= 0) || (d2 >= 0) || (d3 >= 0);
 
         return !(has_neg && has_pos);
-    }
-
-    template <typename T>
-    T get_cur_sec() {
-        const auto a = std::chrono::high_resolution_clock::now();
-        const auto b = std::chrono::time_point_cast<std::chrono::nanoseconds>(a);
-        const auto c = static_cast<T>(b.time_since_epoch().count()) / 1'000'000'000.0;
-        return c;
     }
 
 }
@@ -334,7 +327,7 @@ namespace moonrock {
     void Shader::draw(const VertexBuffer& vert_buf, const ImageUint2D& albedo_map, ImageUint2D& output_img, Image2D<Pixel1Float32>& depth_map) {
         assert(output_img.dimensions() == depth_map.dimensions());
 
-        const auto cur_sec = ::get_cur_sec<float>();
+        const auto cur_sec = static_cast<float>(get_cur_sec());
         const auto half_width = output_img.width() * 0.5;
         const auto half_height = output_img.height() * 0.5;
         Rasterizer::result_list_t rasterized;
