@@ -1,5 +1,6 @@
 #include "moonrock.h"
 
+#include <limits>
 #include <chrono>
 
 #define STBI_NO_PSD
@@ -265,8 +266,8 @@ namespace moonrock {
         min.x = std::max<float>(min.x, 0);
         min.y = std::max<float>(min.y, 0);
 
-        max.x = std::min<float>(max.x, this->m_domain_width);
-        max.y = std::min<float>(max.y, this->m_domain_height);
+        max.x = std::min<float>(max.x, static_cast<float>(this->m_domain_width));
+        max.y = std::min<float>(max.y, static_cast<float>(this->m_domain_height));
 
         return std::make_pair(static_cast<glm::uvec2>(min), static_cast<glm::uvec2>(max));
     }
@@ -303,9 +304,10 @@ namespace moonrock {
 
     ImageUint2D parse_image_from_memory(const uint8_t* const buf, const size_t buf_size) {
         static_assert(std::is_same<uint8_t, stbi_uc>::value);
+        assert(buf_size <= std::numeric_limits<int>::max());
 
         int width, height, channels;
-        const auto pixels = stbi_load_from_memory(buf, buf_size, &width, &height, &channels, STBI_rgb_alpha);
+        const auto pixels = stbi_load_from_memory(buf, static_cast<int>(buf_size), &width, &height, &channels, STBI_rgb_alpha);
         if (nullptr == pixels)
             throw std::exception{};
 
@@ -366,7 +368,7 @@ namespace moonrock {
     glm::vec3 Shader::transform_vertex(const glm::vec3& v, const float seed) {
         const auto model_mat = glm::rotate(glm::mat4{1}, glm::radians<float>(seed * 10), glm::vec3{0, 1, 0});
         const auto view_mat = glm::translate(glm::mat4{1}, glm::vec3{0, 0, -3});
-        const auto proj_mat = glm::perspective<float>(glm::radians<float>(90), 1, 0.1, 100);
+        const auto proj_mat = glm::perspective<float>(glm::radians(90.f), 1.f, 0.1f, 100.f);
         const auto transformed = proj_mat * view_mat * model_mat * glm::vec4{v, 1};
         const auto perspective_devided = glm::vec3{ transformed } / transformed.w;
         return perspective_devided;
