@@ -288,7 +288,7 @@ namespace moonrock {
         const auto view_mat = glm::translate(glm::mat4{1}, glm::vec3{0, 0, -3});
         const auto proj_mat = glm::perspective<float>(glm::radians<float>(90), 1, 2, 100);
         const auto transformed = proj_mat * view_mat * model_mat * glm::vec4{v, 1};
-        const auto perspective_devided = glm::vec3{ transformed.x / transformed.w, transformed.y / transformed.w, transformed.z / transformed.w };
+        const auto perspective_devided = glm::vec3{ transformed } / transformed.w;
         return perspective_devided;
     }
 

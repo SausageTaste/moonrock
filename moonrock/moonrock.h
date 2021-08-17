@@ -286,7 +286,8 @@ namespace moonrock {
                 this->m_rasterizer.m_vertices[2] = glm::vec2{ (v2.x * 0.5 + 0.5) * output_img.width(), (v2.y * 0.5 + 0.5) * output_img.height() };
 
                 for (auto v : this->m_rasterizer.work()) {
-                    const auto current_depth = interpolate_barycentric(v0.z, v1.z, v2.z, v.m_barycentric_coords);
+                    const auto current_depth = 1.f / interpolate_barycentric(1.f / v0.z, 1.f / v1.z, 1.f / v2.z, v.m_barycentric_coords);
+                    //const auto current_depth = interpolate_barycentric(v0.z, v1.z, v2.z, v.m_barycentric_coords);
                     auto& depth_pixel = depth_map.pixel(v.m_coord);
 
                     if (current_depth < depth_pixel.color()) {
