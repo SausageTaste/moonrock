@@ -1,10 +1,13 @@
 #include <cassert>
+#include <fstream>
 #include <iostream>
 #include <exception>
 
 #include <glad/glad.h>
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
+
+#include <moonrock/moonrock.h>
 
 
 namespace {
@@ -87,22 +90,60 @@ namespace {
 
 namespace {
 
+    enum class ShaderType{ vertex, fragment };
+
+
     class ShaderRAII {
 
     private:
         GLuint m_id;
 
     public:
-        explicit
-        ShaderRAII(const GLuint shader)
-            : m_id(shader)
-        {
-
+        ShaderRAII(const ::ShaderType type, const char* const src) {
+            this->init(type, src);
         }
 
         ~ShaderRAII(void) {
-            glDeleteShader(this->m_id);
-            this->m_id = 0;
+            this->destroy();
+        }
+
+        void init(const ::ShaderType type, const char* const src) {
+            this->destroy();
+
+            switch (type) {
+                case ::ShaderType::vertex:
+                    this->m_id = glCreateShader(GL_VERTEX_SHADER);
+                    break;
+                case ::ShaderType::fragment:
+                    this->m_id = glCreateShader(GL_FRAGMENT_SHADER);
+                    break;
+            }
+
+            assert(0 != this->m_id);
+
+            glShaderSource(this->m_id, 1, &src, nullptr);
+            glCompileShader(this->m_id);
+
+            GLint shader_compiled = GL_FALSE;
+            glGetShaderiv(this->m_id, GL_COMPILE_STATUS, &shader_compiled);
+            if (GL_TRUE != shader_compiled) {
+                constexpr auto SHADER_COMPILER_LOG_BUF_SIZE = 2048;
+                GLsizei length = 0;
+                char log[SHADER_COMPILER_LOG_BUF_SIZE];
+                glGetShaderInfoLog(this->m_id, SHADER_COMPILER_LOG_BUF_SIZE, &length, log);
+                throw std::runtime_error(log);
+            }
+        }
+
+        void destroy() {
+            if (this->is_ready()) {
+                glDeleteShader(this->m_id);
+                this->m_id = 0;
+            }
+        }
+
+        bool is_ready() const {
+            return 0 != this->m_id;
         }
 
         GLuint get() const {
@@ -110,40 +151,6 @@ namespace {
         }
 
     };
-
-
-    enum class ShaderType{ vertex, fragment };
-
-    ShaderRAII compile_shader(const ::ShaderType type, const char* const src) {
-        // Returns 0 on error
-        GLuint shader_id = 0;
-
-        switch (type) {
-            case ::ShaderType::vertex:
-                shader_id = glCreateShader(GL_VERTEX_SHADER);
-                break;
-            case ::ShaderType::fragment:
-                shader_id = glCreateShader(GL_FRAGMENT_SHADER);
-                break;
-        }
-
-        assert(0 != shader_id);
-
-        glShaderSource(shader_id, 1, &src, nullptr);
-        glCompileShader(shader_id);
-
-        GLint shader_compiled = GL_FALSE;
-        glGetShaderiv(shader_id, GL_COMPILE_STATUS, &shader_compiled);
-        if (GL_TRUE != shader_compiled) {
-            constexpr auto SHADER_COMPILER_LOG_BUF_SIZE = 2048;
-            GLsizei length = 0;
-            char log[SHADER_COMPILER_LOG_BUF_SIZE];
-            glGetShaderInfoLog(shader_id, SHADER_COMPILER_LOG_BUF_SIZE, &length, log);
-            throw std::runtime_error(log);
-        }
-
-        return ShaderRAII{ shader_id };
-    }
 
 
     class ShaderProgram {
@@ -167,8 +174,8 @@ namespace {
             this->m_program = glCreateProgram();
             assert(0 != this->m_program);
 
-            const auto vert_shader = ::compile_shader(ShaderType::vertex, vert_src);
-            const auto frag_shader = ::compile_shader(ShaderType::fragment, frag_src);
+            const ::ShaderRAII vert_shader(::ShaderType::vertex, vert_src);
+            const ::ShaderRAII frag_shader(::ShaderType::fragment, frag_src);
 
             glAttachShader(this->m_program, vert_shader.get());
             glAttachShader(this->m_program, frag_shader.get());
@@ -201,6 +208,68 @@ namespace {
 
     };
 
+
+    class TextureGL {
+
+    private:
+        GLuint m_tex = 0;
+
+    public:
+        void init(const moonrock::ImageUint2D& image) {
+            this->destroy();
+
+            glGenTextures(1, &this->m_tex);
+            assert(0 != this->m_tex);
+            glBindTexture(GL_TEXTURE_2D, this->m_tex);
+//*/
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+/*/
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+//*/
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.width(), image.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, image.data());
+            glGenerateMipmap(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, 0);
+        }
+
+        void destroy() {
+            if (this->is_ready()) {
+                glDeleteTextures(1, &this->m_tex);
+                this->m_tex = 0;
+            }
+        }
+
+        bool is_ready() const {
+            return 0 != this->m_tex;
+        }
+
+        auto get() const {
+            return this->m_tex;
+        }
+
+    };
+
+}
+
+
+namespace {
+
+    moonrock::ImageUint2D load_image_from_disk(const char* const path) {
+        std::fstream file;
+        file.open(path, std::ios::in | std::ios::ate | std::ios::binary);
+        if (!file.is_open())
+            throw std::runtime_error{"failed to open file"};
+
+        const auto content_size = file.tellg();
+        file.seekg(0);
+
+        std::vector<uint8_t> buffer(content_size);
+        file.read(reinterpret_cast<char*>(buffer.data()), buffer.size());
+
+        return moonrock::parse_image_from_memory(buffer.data(), buffer.size());
+    }
+
 }
 
 
@@ -216,28 +285,48 @@ int main() {
         "    vec2( 3.0,  1.0)\n"
         ");\n"
         "\n"
+        "vec2 UV_COORDS[3] = vec2[](\n"
+        "    vec2(0.0, 0.0),\n"
+        "    vec2(0.0, 2.0),\n"
+        "    vec2(2.0, 0.0)\n"
+        ");\n"
+        "\n"
+        "out vec2 v_uv_coord;\n"
+        "\n"
         "void main() {\n"
         "    gl_Position = vec4(POSITIONS[gl_VertexID], 0.0, 1.0);\n"
+        "    v_uv_coord = UV_COORDS[gl_VertexID];\n"
         "}\n"
         ,
         "#version 330 core\n"
         "\n"
+        "in vec2 v_uv_coord;\n"
+        "\n"
+        "uniform sampler2D u_image;\n"
+        "\n"
         "out vec4 f_color;\n"
         "\n"
         "void main() {\n"
-        "    f_color = vec4(1.0, 0.0, 0.0, 1.0);\n"
+        "    f_color = texture(u_image, v_uv_coord);\n"
         "}\n"
     );
+
+    const auto texture_src = ::load_image_from_disk("C:\\Users\\woos8\\Downloads\\albedo_map.jpg");
+    ::TextureGL texture;
+    texture.init(texture_src);
+
+    glClearColor(0, 0, 0, 1);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture.get());
 
     while (!window.should_close()) {
         window.poll_events();
 
-        glClearColor(0.2, 0, 0.2, 1);
         glClear(GL_COLOR_BUFFER_BIT);
 
         shader.use();
         glDrawArrays(GL_TRIANGLES, 0, 3);
-
         window.swap_buffers();
     }
 
