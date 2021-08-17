@@ -10,6 +10,7 @@
 #include <moonrock/moonrock.h>
 
 
+// GLFW
 namespace {
 
     constexpr unsigned int MIN_WIN_WIDTH = 128;
@@ -88,6 +89,7 @@ namespace {
 }
 
 
+// OpenGL
 namespace {
 
     enum class ShaderType{ vertex, fragment };
@@ -255,6 +257,82 @@ namespace {
 
 namespace {
 
+    class RenderMaster {
+
+    private:
+        ::WindowGLFW m_window;
+        ::ShaderProgram m_shader;
+        ::TextureGL m_texture;
+
+    public:
+        RenderMaster()
+            : m_window("Moonrock renderer", 512, 512, false)
+        {
+            this->m_shader.init(
+                "#version 330 core\n"
+                "\n"
+                "vec2 POSITIONS[3] = vec2[](\n"
+                "    vec2(-1.0,  1.0),\n"
+                "    vec2(-1.0, -3.0),\n"
+                "    vec2( 3.0,  1.0)\n"
+                ");\n"
+                "\n"
+                "vec2 UV_COORDS[3] = vec2[](\n"
+                "    vec2(0.0, 0.0),\n"
+                "    vec2(0.0, 2.0),\n"
+                "    vec2(2.0, 0.0)\n"
+                ");\n"
+                "\n"
+                "out vec2 v_uv_coord;\n"
+                "\n"
+                "void main() {\n"
+                "    gl_Position = vec4(POSITIONS[gl_VertexID], 0.0, 1.0);\n"
+                "    v_uv_coord = UV_COORDS[gl_VertexID];\n"
+                "}\n"
+                ,
+                "#version 330 core\n"
+                "\n"
+                "in vec2 v_uv_coord;\n"
+                "\n"
+                "uniform sampler2D u_image;\n"
+                "\n"
+                "out vec4 f_color;\n"
+                "\n"
+                "void main() {\n"
+                "    f_color = texture(u_image, v_uv_coord);\n"
+                "}\n"
+            );
+
+            glClearColor(0, 0, 0, 1);
+        }
+
+        bool update() {
+            this->m_window.poll_events();
+
+            glClear(GL_COLOR_BUFFER_BIT);
+
+            if (this->m_texture.is_ready()) {
+                this->m_shader.use();
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, this->m_texture.get());
+                glDrawArrays(GL_TRIANGLES, 0, 3);
+            }
+
+            this->m_window.swap_buffers();
+            return !this->m_window.should_close();
+        }
+
+        void set_image(const moonrock::ImageUint2D& image) {
+            this->m_texture.init(image);
+        }
+
+    };
+
+}
+
+
+namespace {
+
     moonrock::ImageUint2D load_image_from_disk(const char* const path) {
         std::fstream file;
         file.open(path, std::ios::in | std::ios::ate | std::ios::binary);
@@ -274,60 +352,13 @@ namespace {
 
 
 int main() {
-    WindowGLFW window{ "Moonrock renderer", 512, 512, false };
+    ::RenderMaster renderer;
 
-    ::ShaderProgram shader(
-        "#version 330 core\n"
-        "\n"
-        "vec2 POSITIONS[3] = vec2[](\n"
-        "    vec2(-1.0,  1.0),\n"
-        "    vec2(-1.0, -3.0),\n"
-        "    vec2( 3.0,  1.0)\n"
-        ");\n"
-        "\n"
-        "vec2 UV_COORDS[3] = vec2[](\n"
-        "    vec2(0.0, 0.0),\n"
-        "    vec2(0.0, 2.0),\n"
-        "    vec2(2.0, 0.0)\n"
-        ");\n"
-        "\n"
-        "out vec2 v_uv_coord;\n"
-        "\n"
-        "void main() {\n"
-        "    gl_Position = vec4(POSITIONS[gl_VertexID], 0.0, 1.0);\n"
-        "    v_uv_coord = UV_COORDS[gl_VertexID];\n"
-        "}\n"
-        ,
-        "#version 330 core\n"
-        "\n"
-        "in vec2 v_uv_coord;\n"
-        "\n"
-        "uniform sampler2D u_image;\n"
-        "\n"
-        "out vec4 f_color;\n"
-        "\n"
-        "void main() {\n"
-        "    f_color = texture(u_image, v_uv_coord);\n"
-        "}\n"
-    );
+    const auto image = ::load_image_from_disk("C:\\Users\\woos8\\Downloads\\albedo_map.jpg");
+    renderer.set_image(image);
 
-    const auto texture_src = ::load_image_from_disk("C:\\Users\\woos8\\Downloads\\albedo_map.jpg");
-    ::TextureGL texture;
-    texture.init(texture_src);
+    while (renderer.update()) {
 
-    glClearColor(0, 0, 0, 1);
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture.get());
-
-    while (!window.should_close()) {
-        window.poll_events();
-
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        shader.use();
-        glDrawArrays(GL_TRIANGLES, 0, 3);
-        window.swap_buffers();
     }
 
     return 0;
