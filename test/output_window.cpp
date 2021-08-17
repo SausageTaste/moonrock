@@ -296,7 +296,7 @@ namespace {
 
     public:
         RenderMaster()
-            : m_window("Moonrock renderer", 512, 512, false)
+            : m_window("Moonrock renderer", 800, 800, false)
         {
             this->m_shader.init(
                 "#version 330 core\n"
