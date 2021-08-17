@@ -301,16 +301,26 @@ namespace moonrock {
         };
 
     public:
+        using result_list_t = std::vector<RasResult>;
+
+    public:
         std::array<glm::vec2, 3> m_vertices;
         uint32_t m_domain_width = 0, m_domain_height = 0;
 
     public:
-        void work(std::vector<RasResult>& output) const;
+        void work(result_list_t& output) const;
 
-        std::vector<RasResult> work() const;
+        result_list_t work() const;
 
     private:
         std::pair<glm::uvec2, glm::uvec2> make_min_max() const;
+
+        RasResult make_one_result(
+            const uint32_t x,
+            const uint32_t y,
+            const glm::vec2 sample_point,
+            const float triangle_area_times_2
+        ) const;
 
     };
 
