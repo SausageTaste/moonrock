@@ -231,8 +231,8 @@ namespace moonrock {
         }
 
         glm::vec4 sample_bilinear(const float x, const float y) const {
-            const auto x_width = x * this->width();
-            const auto y_height = y * this->height();
+            const auto x_width = x * (this->width() - 1);
+            const auto y_height = y * (this->height() - 1);
 
             float _;
             const auto x_frac = std::modf(x_width, &_);

@@ -355,7 +355,7 @@ namespace moonrock {
                         v.m_barycentric_coords
                     );
 
-                    const auto current_albedo = albedo_map.sample_nearest(current_uv_coord);
+                    const auto current_albedo = albedo_map.sample_bilinear(current_uv_coord);
 
                     output_img.pixel(v.m_coord).set_color_xyzw(current_albedo);
                     depth_pixel = current_depth;
