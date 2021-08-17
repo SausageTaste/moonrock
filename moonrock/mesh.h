@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <iostream>
 
-#include <glm/glm.hpp>
+#include "math_tool.h"
 
 
 namespace moonrock {

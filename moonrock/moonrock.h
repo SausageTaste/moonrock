@@ -5,15 +5,67 @@
 #include <cstdint>
 #include <iostream>
 
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-
 #include "mesh.h"
 
 
 namespace moonrock {
 
+    class Pixel1Float32;
     class Pixel4Float32;
+
+
+    class Pixel1Uint8 {
+
+    private:
+        uint8_t m_color = 0;
+
+    public:
+        Pixel1Uint8() = default;
+
+        explicit
+        Pixel1Uint8(const float color);
+
+        void operator=(const float value);
+
+        operator Pixel1Float32() const;
+
+        float color() const;
+
+        void set_color(const float value);
+
+    };
+
+
+    class Pixel1Float32 {
+
+    private:
+        float m_color = 0;
+
+    public:
+        Pixel1Float32() = default;
+
+        explicit
+        Pixel1Float32(const float color) {
+            this->set_color(color);
+        }
+
+        void operator=(const float value) {
+            this->set_color(value);
+        }
+
+        operator Pixel1Uint8() const {
+            return Pixel1Uint8{this->color()};
+        }
+
+        float color() const {
+            return this->m_color;
+        }
+
+        void set_color(const float value) {
+            this->m_color = value;
+        }
+
+    };
 
 
     class Pixel4Uint8 {
@@ -126,6 +178,14 @@ namespace moonrock {
             return this->m_data.data();
         }
 
+        auto& vector() {
+            return this->m_data;
+        }
+
+        auto& vector() const {
+            return this->m_data;
+        }
+
         auto& pixel(const uint32_t x, const uint32_t y) {
             return this->m_data[this->calc_index(x, y)];
         }
@@ -142,10 +202,13 @@ namespace moonrock {
             return this->pixel(v.x, v.y);
         }
 
-        void clear(const float x, const float y, const float z, const float w) {
-            for (auto& pixel : this->m_data) {
-                pixel.set_color_xyzw(x, y, z, w);
+        template <typename _DstPixelTyp>
+        auto convert() {
+            Image2D<_DstPixelTyp> output{ this->width(), this->height() };
+            for (size_t i = 0; i < output.vector().size(); ++i) {
+                output.vector().at(i) = static_cast<_DstPixelTyp>(this->vector().at(i));
             }
+            return output;
         }
 
     private:
@@ -160,6 +223,8 @@ namespace moonrock {
 
 
     bool export_image_to_disk(const char* const output_path, const ImageUint2D& img);
+
+    bool export_image_to_disk(const char* const output_path, const Image2D<Pixel1Uint8>& img);
 
 
     class Rasterizer {
@@ -186,31 +251,35 @@ namespace moonrock {
 
     public:
         template <typename _PixelTyp>
-        void draw(const VertexBuffer& vert_buf, Image2D<_PixelTyp>& output_img) {
+        void draw(const VertexBuffer& vert_buf, Image2D<_PixelTyp>& output_img, Image2D<Pixel1Float32>& depth_map) {
+            std::array<glm::vec4, 4> colors{
+                glm::vec4{1, 0, 0, 1},
+                glm::vec4{1, 0, 0, 1},
+                glm::vec4{0, 1, 0, 1},
+                glm::vec4{0, 1, 0, 1},
+            };
+
             this->m_rasterizer.m_domain_width = output_img.width();
             this->m_rasterizer.m_domain_height = output_img.height();
 
             for (size_t i = 0; i < vert_buf.size() / 3; ++i) {
-                this->m_rasterizer.m_vertices[0] = this->transform_vertex(vert_buf.m_vertices[3 * i + 0].m_position, output_img.width(), output_img.height());
-                this->m_rasterizer.m_vertices[1] = this->transform_vertex(vert_buf.m_vertices[3 * i + 1].m_position, output_img.width(), output_img.height());
-                this->m_rasterizer.m_vertices[2] = this->transform_vertex(vert_buf.m_vertices[3 * i + 2].m_position, output_img.width(), output_img.height());
+                const auto v0 = this->transform_vertex(vert_buf.m_vertices[3 * i + 0].m_position);
+                const auto v1 = this->transform_vertex(vert_buf.m_vertices[3 * i + 1].m_position);
+                const auto v2 = this->transform_vertex(vert_buf.m_vertices[3 * i + 2].m_position);
+
+                this->m_rasterizer.m_vertices[0] = glm::vec2{ (v0.x * 0.5 + 0.5) * output_img.width(), (v0.y * 0.5 + 0.5) * output_img.height() };
+                this->m_rasterizer.m_vertices[1] = glm::vec2{ (v1.x * 0.5 + 0.5) * output_img.width(), (v1.y * 0.5 + 0.5) * output_img.height() };
+                this->m_rasterizer.m_vertices[2] = glm::vec2{ (v2.x * 0.5 + 0.5) * output_img.width(), (v2.y * 0.5 + 0.5) * output_img.height() };
 
                 for (auto v : this->m_rasterizer.work()) {
-                    output_img.pixel(v).set_color_xyzw(1, 1, 0, 1);
+                    output_img.pixel(v).set_color_xyzw(colors[i % colors.size()]);
+                    depth_map.pixel(v) = v0.z;
                 }
             }
         }
 
     private:
-        static glm::vec2 transform_vertex(const glm::vec3& v, const float width, const float height) {
-            const auto model_mat = glm::rotate(glm::mat4{1}, glm::radians<float>(30), glm::vec3{0, 1, 0});
-            const auto view_mat = glm::translate(glm::mat4{1}, glm::vec3{0, 0, -3});
-            const auto proj_mat = glm::perspective<float>(glm::radians<float>(90), 1, 0.1, 100);
-            const auto result = proj_mat * view_mat * model_mat * glm::vec4{v, 1};
-            const auto in_device_space = glm::vec2{ result.x / result.w, result.y / result.w };
-            const auto output = glm::vec2{ (in_device_space.x * 0.5 + 0.5) * width, (in_device_space.y * 0.5 + 0.5) * height };
-            return output;
-        }
+        static glm::vec3 transform_vertex(const glm::vec3& v);
 
     };
 

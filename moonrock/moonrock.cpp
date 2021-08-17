@@ -32,6 +32,32 @@ namespace {
 }
 
 
+// Pixel1Uint8
+namespace moonrock {
+
+    Pixel1Uint8::Pixel1Uint8(const float color) {
+        this->set_color(color);
+    }
+
+    void Pixel1Uint8::operator=(const float value) {
+        this->set_color(value);
+    }
+
+    Pixel1Uint8::operator Pixel1Float32() const {
+        return Pixel1Float32{this->color()};
+    }
+
+    float Pixel1Uint8::color() const {
+        return static_cast<float>(this->m_color) / 255.f;
+    }
+
+    void Pixel1Uint8::set_color(const float value) {
+        this->m_color = static_cast<uint8_t>(std::min<float>(value, 1) * 255);
+    }
+
+}
+
+
 // Pixel4Uint8
 namespace moonrock {
 
@@ -233,6 +259,25 @@ namespace moonrock {
     bool export_image_to_disk(const char* const output_path, const ImageUint2D& img) {
         static_assert(4 == sizeof(Pixel4Uint8));
         return 0 != stbi_write_png(output_path, img.width(), img.height(), 4, img.data(), img.height() * 4);
+    }
+
+    bool export_image_to_disk(const char* const output_path, const Image2D<Pixel1Uint8>& img) {
+        return 0 != stbi_write_png(output_path, img.width(), img.height(), 1, img.data(), img.height());
+    }
+
+}
+
+
+// Shader
+namespace moonrock {
+
+    glm::vec3 Shader::transform_vertex(const glm::vec3& v) {
+        const auto model_mat = glm::rotate(glm::mat4{1}, glm::radians<float>(30), glm::vec3{0, 1, 0});
+        const auto view_mat = glm::translate(glm::mat4{1}, glm::vec3{0, 0, -3});
+        const auto proj_mat = glm::perspective<float>(glm::radians<float>(90), 1, 2, 100);
+        const auto transformed = proj_mat * view_mat * model_mat * glm::vec4{v, 1};
+        const auto perspective_devided = glm::vec3{ transformed.x / transformed.w, transformed.y / transformed.w, transformed.z / transformed.w };
+        return perspective_devided;
     }
 
 }
