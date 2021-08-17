@@ -284,6 +284,8 @@ namespace moonrock {
 
     bool export_image_to_disk(const char* const output_path, const Image2D<Pixel1Uint8>& img);
 
+    ImageUint2D parse_image_from_memory(const uint8_t* const buf, const size_t buf_size);
+
 
     class Rasterizer {
 

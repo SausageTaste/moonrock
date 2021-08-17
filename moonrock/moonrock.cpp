@@ -1,7 +1,13 @@
 #include "moonrock.h"
 
+#define STBI_NO_PSD
+#define STBI_NO_PIC
+#define STBI_NO_PNM
+#define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image.h>
 #include <stb_image_write.h>
+
 
 #include "math_tool.h"
 
@@ -284,6 +290,23 @@ namespace moonrock {
 
     bool export_image_to_disk(const char* const output_path, const Image2D<Pixel1Uint8>& img) {
         return 0 != stbi_write_png(output_path, img.width(), img.height(), 1, img.data(), img.width());
+    }
+
+    ImageUint2D parse_image_from_memory(const uint8_t* const buf, const size_t buf_size) {
+        static_assert(std::is_same<uint8_t, stbi_uc>::value);
+
+        int width, height, channels;
+        const auto pixels = stbi_load_from_memory(buf, buf_size, &width, &height, &channels, STBI_rgb_alpha);
+        if (nullptr == pixels)
+            throw std::exception{};
+
+        const auto image_data_size = static_cast<size_t>(width * height * 4);
+
+        moonrock::ImageUint2D output(width, height);
+        memcpy(output.vector().data(), pixels, image_data_size);
+
+        stbi_image_free(pixels);
+        return output;
     }
 
 }

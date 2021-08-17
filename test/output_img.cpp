@@ -1,10 +1,5 @@
 #include <iostream>
-
-#define STBI_NO_PSD
-#define STBI_NO_PIC
-#define STBI_NO_PNM
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+#include <fstream>
 
 #include "moonrock/moonrock.h"
 
@@ -12,20 +7,18 @@
 namespace {
 
     moonrock::ImageUint2D load_image_from_disk(const char* const path) {
-        static_assert(std::is_same<uint8_t, stbi_uc>::value);
+        std::fstream file;
+        file.open(path, std::ios::in | std::ios::ate | std::ios::binary);
+        if (!file.is_open())
+            throw std::exception{"failed to open file"};
 
-        int width, height, channels;
-        const auto pixels = stbi_load(path, &width, &height, &channels, STBI_rgb_alpha);
-        if (nullptr == pixels)
-            throw std::exception{};
+        const auto content_size = file.tellg();
+        file.seekg(0);
 
-        const auto image_data_size = static_cast<size_t>(width * height * 4);
+        std::vector<uint8_t> buffer(content_size);
+        file.read(reinterpret_cast<char*>(buffer.data()), buffer.size());
 
-        moonrock::ImageUint2D output(width, height);
-        memcpy(output.vector().data(), pixels, image_data_size);
-
-        stbi_image_free(pixels);
-        return output;
+        return moonrock::parse_image_from_memory(buffer.data(), buffer.size());
     }
 
 }
