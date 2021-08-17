@@ -292,6 +292,43 @@ namespace moonrock {
 // Shader
 namespace moonrock {
 
+    void Shader::draw(const VertexBuffer& vert_buf, const ImageUint2D& albedo_map, ImageUint2D& output_img, Image2D<Pixel1Float32>& depth_map) {
+        assert(output_img.dimensions() == depth_map.dimensions());
+
+        this->m_rasterizer.m_domain_width = output_img.width();
+        this->m_rasterizer.m_domain_height = output_img.height();
+
+        for (size_t i = 0; i < vert_buf.size() / 3; ++i) {
+            const auto v0 = this->transform_vertex(vert_buf.m_vertices[3 * i + 0].m_position);
+            const auto v1 = this->transform_vertex(vert_buf.m_vertices[3 * i + 1].m_position);
+            const auto v2 = this->transform_vertex(vert_buf.m_vertices[3 * i + 2].m_position);
+
+            this->m_rasterizer.m_vertices[0] = glm::vec2{ (v0.x * 0.5 + 0.5) * output_img.width(), (v0.y * 0.5 + 0.5) * output_img.height() };
+            this->m_rasterizer.m_vertices[1] = glm::vec2{ (v1.x * 0.5 + 0.5) * output_img.width(), (v1.y * 0.5 + 0.5) * output_img.height() };
+            this->m_rasterizer.m_vertices[2] = glm::vec2{ (v2.x * 0.5 + 0.5) * output_img.width(), (v2.y * 0.5 + 0.5) * output_img.height() };
+
+            for (auto v : this->m_rasterizer.work()) {
+                const auto current_depth = 1.f / interpolate_barycentric(1.f / v0.z, 1.f / v1.z, 1.f / v2.z, v.m_barycentric_coords);
+                //const auto current_depth = interpolate_barycentric(v0.z, v1.z, v2.z, v.m_barycentric_coords);
+                auto& depth_pixel = depth_map.pixel(v.m_coord);
+
+                if (current_depth < depth_pixel.color()) {
+                    const auto current_uv_coord = interpolate_barycentric(
+                        vert_buf.m_vertices[3 * i + 0].m_uv_coord,
+                        vert_buf.m_vertices[3 * i + 1].m_uv_coord,
+                        vert_buf.m_vertices[3 * i + 2].m_uv_coord,
+                        v.m_barycentric_coords
+                    );
+
+                    const auto current_albedo = albedo_map.sample_nearest(current_uv_coord);
+
+                    output_img.pixel(v.m_coord).set_color_xyzw(current_albedo);
+                    depth_pixel = current_depth;
+                }
+            }
+        }
+    }
+
     glm::vec3 Shader::transform_vertex(const glm::vec3& v) {
         const auto model_mat = glm::rotate(glm::mat4{1}, glm::radians<float>(30), glm::vec3{0, 1, 0});
         const auto view_mat = glm::translate(glm::mat4{1}, glm::vec3{0, 0, -3});
