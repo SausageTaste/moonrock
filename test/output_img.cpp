@@ -16,7 +16,8 @@ int main() {
 
     shader.draw(vbuf, img, depth_map);
 
-    std::cout << moonrock::export_image_to_disk("C:\\Users\\woos8\\Downloads\\output.png", img) << std::endl;
-    system("C:\\Users\\woos8\\Downloads\\output.png");
+    std::cout << moonrock::export_image_to_disk("C:\\Users\\woos8\\Downloads\\output_color.png", img) << std::endl;
+    std::cout << moonrock::export_image_to_disk("C:\\Users\\woos8\\Downloads\\output_depth.png", depth_map.convert<moonrock::Pixel1Uint8>()) << std::endl;
+    system("C:\\Users\\woos8\\Downloads\\output_color.png");
     return 0;
 }
