@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cmath>
 #include <array>
 #include <vector>
 #include <cstdint>
@@ -75,6 +76,10 @@ namespace moonrock {
 
     public:
         Pixel4Uint8();
+
+        Pixel4Uint8(const float x, const float y, const float z, const float w) {
+            this->set_color_xyzw(x, y, z, w);
+        }
 
         operator Pixel4Float32() const;
 
@@ -218,7 +223,7 @@ namespace moonrock {
         }
 
         glm::vec4 sample_nearest(const float x, const float y) const {
-            return this->m_data[this->calc_index(x * this->width(), y * this->height())].color_xyzw();
+            return this->m_data[this->calc_index(x * (this->width() - 1), y * (this->height() - 1))].color_xyzw();
         }
 
         glm::vec4 sample_nearest(const glm::vec2& coords) const {
@@ -233,8 +238,8 @@ namespace moonrock {
             const auto x_frac = std::modf(x_width, &_);
             const auto y_frac = std::modf(y_height, &_);
 
-            const auto x_floor = static_cast<uint32_t>(std::floorf(x_width));
-            const auto y_floor = static_cast<uint32_t>(std::floorf(y_height));
+            const auto x_floor = static_cast<uint32_t>(std::floor(x_width));
+            const auto y_floor = static_cast<uint32_t>(std::floor(y_height));
             const auto x_ceiling = std::min(x_floor + 1, this->width() - 1);
             const auto y_ceiling = std::min(y_floor + 1, this->height() - 1);
 
@@ -319,7 +324,7 @@ namespace moonrock {
         void draw(const VertexBuffer& vert_buf, const ImageUint2D& albedo_map, ImageUint2D& output_img, Image2D<Pixel1Float32>& depth_map);
 
     private:
-        static glm::vec3 transform_vertex(const glm::vec3& v);
+        static glm::vec3 transform_vertex(const glm::vec3& v, const float seed);
 
     };
 

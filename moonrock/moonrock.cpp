@@ -1,5 +1,7 @@
 #include "moonrock.h"
 
+#include <chrono>
+
 #define STBI_NO_PSD
 #define STBI_NO_PIC
 #define STBI_NO_PNM
@@ -33,6 +35,14 @@ namespace {
         has_pos = (d1 >= 0) || (d2 >= 0) || (d3 >= 0);
 
         return !(has_neg && has_pos);
+    }
+
+    template <typename T>
+    T get_cur_sec() {
+        const auto a = std::chrono::high_resolution_clock::now();
+        const auto b = std::chrono::time_point_cast<std::chrono::nanoseconds>(a);
+        const auto c = static_cast<T>(b.time_since_epoch().count()) / 1'000'000'000.0;
+        return c;
     }
 
 }
@@ -318,13 +328,15 @@ namespace moonrock {
     void Shader::draw(const VertexBuffer& vert_buf, const ImageUint2D& albedo_map, ImageUint2D& output_img, Image2D<Pixel1Float32>& depth_map) {
         assert(output_img.dimensions() == depth_map.dimensions());
 
+        const auto cur_sec = ::get_cur_sec<float>();
+
         this->m_rasterizer.m_domain_width = output_img.width();
         this->m_rasterizer.m_domain_height = output_img.height();
 
         for (size_t i = 0; i < vert_buf.size() / 3; ++i) {
-            const auto v0 = this->transform_vertex(vert_buf.m_vertices[3 * i + 0].m_position);
-            const auto v1 = this->transform_vertex(vert_buf.m_vertices[3 * i + 1].m_position);
-            const auto v2 = this->transform_vertex(vert_buf.m_vertices[3 * i + 2].m_position);
+            const auto v0 = this->transform_vertex(vert_buf.m_vertices[3 * i + 0].m_position, cur_sec);
+            const auto v1 = this->transform_vertex(vert_buf.m_vertices[3 * i + 1].m_position, cur_sec);
+            const auto v2 = this->transform_vertex(vert_buf.m_vertices[3 * i + 2].m_position, cur_sec);
 
             this->m_rasterizer.m_vertices[0] = glm::vec2{ (v0.x * 0.5 + 0.5) * output_img.width(), (v0.y * 0.5 + 0.5) * output_img.height() };
             this->m_rasterizer.m_vertices[1] = glm::vec2{ (v1.x * 0.5 + 0.5) * output_img.width(), (v1.y * 0.5 + 0.5) * output_img.height() };
@@ -352,10 +364,10 @@ namespace moonrock {
         }
     }
 
-    glm::vec3 Shader::transform_vertex(const glm::vec3& v) {
-        const auto model_mat = glm::rotate(glm::mat4{1}, glm::radians<float>(30), glm::vec3{0, 1, 0});
+    glm::vec3 Shader::transform_vertex(const glm::vec3& v, const float seed) {
+        const auto model_mat = glm::rotate(glm::mat4{1}, glm::radians<float>(seed * 10), glm::vec3{0, 1, 0});
         const auto view_mat = glm::translate(glm::mat4{1}, glm::vec3{0, 0, -3});
-        const auto proj_mat = glm::perspective<float>(glm::radians<float>(90), 1, 2, 100);
+        const auto proj_mat = glm::perspective<float>(glm::radians<float>(90), 1, 0.1, 100);
         const auto transformed = proj_mat * view_mat * model_mat * glm::vec4{v, 1};
         const auto perspective_devided = glm::vec3{ transformed } / transformed.w;
         return perspective_devided;
