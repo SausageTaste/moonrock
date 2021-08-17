@@ -135,6 +135,15 @@ namespace moonrock {
             return this->m_color.w;
         }
 
+        glm::vec4 color_xyzw() const {
+            return glm::vec4{
+                this->color_x(),
+                this->color_y(),
+                this->color_z(),
+                this->color_w()
+            };
+        }
+
         void set_color_x(const float value);
 
         void set_color_y(const float value);
@@ -208,12 +217,41 @@ namespace moonrock {
             return this->pixel(v.x, v.y);
         }
 
-        auto& sample_nearest(const float x, const float y) const {
-            return this->m_data[this->calc_index(x * this->width(), y * this->height())];
+        glm::vec4 sample_nearest(const float x, const float y) const {
+            return this->m_data[this->calc_index(x * this->width(), y * this->height())].color_xyzw();
         }
 
-        auto& sample_nearest(const glm::vec2& coords) const {
+        glm::vec4 sample_nearest(const glm::vec2& coords) const {
             return this->sample_nearest(coords.x, coords.y);
+        }
+
+        glm::vec4 sample_bilinear(const float x, const float y) const {
+            const auto x_width = x * this->width();
+            const auto y_height = y * this->height();
+
+            float _;
+            const auto x_frac = std::modf(x_width, &_);
+            const auto y_frac = std::modf(y_height, &_);
+
+            const auto x_floor = static_cast<uint32_t>(std::floorf(x_width));
+            const auto y_floor = static_cast<uint32_t>(std::floorf(y_height));
+            const auto x_ceiling = std::min(x_floor + 1, this->width() - 1);
+            const auto y_ceiling = std::min(y_floor + 1, this->height() - 1);
+
+            const auto lit00 = this->pixel(x_floor,   y_floor  ).color_xyzw();
+            const auto lit01 = this->pixel(x_floor,   y_ceiling).color_xyzw();
+            const auto lit10 = this->pixel(x_ceiling, y_floor  ).color_xyzw();
+            const auto lit11 = this->pixel(x_ceiling, y_ceiling).color_xyzw();
+
+            const auto lit_y0    = glm::mix( lit00,  lit10, x_frac);
+            const auto lit_y1    = glm::mix( lit01,  lit11, x_frac);
+            const auto lit_total = glm::mix(lit_y0, lit_y1, y_frac);
+
+            return lit_total;
+        }
+
+        glm::vec4 sample_bilinear(const glm::vec2& coords) const {
+            return this->sample_bilinear(coords.x, coords.y);
         }
 
         void fill(const _PixelTyp& value) {
@@ -280,15 +318,6 @@ namespace moonrock {
         void draw(const VertexBuffer& vert_buf, const ImageUint2D& albedo_map, Image2D<_PixelTyp>& output_img, Image2D<Pixel1Float32>& depth_map) {
             assert(output_img.dimensions() == depth_map.dimensions());
 
-            std::array<glm::vec4, 6> colors{
-                glm::vec4{1, 0, 0, 1},
-                glm::vec4{0, 1, 0, 1},
-                glm::vec4{0, 0, 1, 1},
-                glm::vec4{1, 1, 0, 1},
-                glm::vec4{1, 0, 1, 1},
-                glm::vec4{1, 1, 0, 1},
-            };
-
             this->m_rasterizer.m_domain_width = output_img.width();
             this->m_rasterizer.m_domain_height = output_img.height();
 
@@ -307,13 +336,6 @@ namespace moonrock {
                     auto& depth_pixel = depth_map.pixel(v.m_coord);
 
                     if (current_depth < depth_pixel.color()) {
-                        const auto current_color = interpolate_barycentric(
-                            colors[i % colors.size()],
-                            colors[(i + 1) % colors.size()],
-                            colors[(i + 2) % colors.size()],
-                            v.m_barycentric_coords
-                        );
-
                         const auto current_uv_coord = interpolate_barycentric(
                             vert_buf.m_vertices[3 * i + 0].m_uv_coord,
                             vert_buf.m_vertices[3 * i + 1].m_uv_coord,
@@ -321,7 +343,9 @@ namespace moonrock {
                             v.m_barycentric_coords
                         );
 
-                        output_img.pixel(v.m_coord).set_color_xyzw(albedo_map.sample_nearest(current_uv_coord).color_xyzw());
+                        const auto current_albedo = albedo_map.sample_nearest(current_uv_coord);
+
+                        output_img.pixel(v.m_coord).set_color_xyzw(current_albedo);
                         depth_pixel = current_depth;
                     }
                 }

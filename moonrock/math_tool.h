@@ -23,4 +23,9 @@ namespace moonrock {
         return v0 * barycentric[0] + v1 * barycentric[1] + v2 * barycentric[2];
     }
 
+    template <typename T>
+    auto clamp(const T x, const T min, const T max) {
+        return std::max<T>(std::min<T>(x, max), min);
+    }
+
 }
