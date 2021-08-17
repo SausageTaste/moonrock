@@ -9,6 +9,8 @@ int main() {
     moonrock::VertexBuffer vbuf;
     moonrock::Shader shader;
 
+    depth_map.fill(moonrock::Pixel1Float32{1});
+
     moonrock::gen_mesh_quad(vbuf.m_vertices, glm::vec3{-1, -1, 0}, glm::vec3{-1, 1, 0}, glm::vec3{1, 1, 0}, glm::vec3{1, -1, 0});
     moonrock::gen_mesh_quad(vbuf.m_vertices, glm::vec3{0, -1 + 0.3, -1}, glm::vec3{0, 1 + 0.3, -1}, glm::vec3{0, 1 + 0.3, 1}, glm::vec3{0, -1 + 0.3, 1});
 

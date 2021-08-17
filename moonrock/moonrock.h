@@ -202,6 +202,12 @@ namespace moonrock {
             return this->pixel(v.x, v.y);
         }
 
+        void fill(const _PixelTyp& value) {
+            for (auto& x : this->vector()) {
+                x = value;
+            }
+        }
+
         template <typename _DstPixelTyp>
         auto convert() {
             Image2D<_DstPixelTyp> output{ this->width(), this->height() };
@@ -229,14 +235,20 @@ namespace moonrock {
 
     class Rasterizer {
 
+    private:
+        struct RasResult {
+            glm::uvec2 m_coord;
+            std::array<float, 3> m_barycentric_coords;
+        };
+
     public:
         std::array<glm::vec2, 3> m_vertices;
         uint32_t m_domain_width = 0, m_domain_height = 0;
 
     public:
-        void work(std::vector<glm::uvec2>& output) const;
+        void work(std::vector<RasResult>& output) const;
 
-        std::vector<glm::uvec2> work() const;
+        std::vector<RasResult> work() const;
 
     private:
         std::pair<glm::uvec2, glm::uvec2> make_min_max() const;
@@ -272,8 +284,8 @@ namespace moonrock {
                 this->m_rasterizer.m_vertices[2] = glm::vec2{ (v2.x * 0.5 + 0.5) * output_img.width(), (v2.y * 0.5 + 0.5) * output_img.height() };
 
                 for (auto v : this->m_rasterizer.work()) {
-                    output_img.pixel(v).set_color_xyzw(colors[i % colors.size()]);
-                    depth_map.pixel(v) = v0.z;
+                    output_img.pixel(v.m_coord).set_color_xyzw(colors[i % colors.size()]);
+                    depth_map.pixel(v.m_coord) = v0.z * v.m_barycentric_coords[0] + v1.z * v.m_barycentric_coords[1] + v2.z * v.m_barycentric_coords[2];
                 }
             }
         }

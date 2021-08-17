@@ -155,7 +155,7 @@ namespace moonrock {
 // Rasterizer
 namespace moonrock {
 
-    void Rasterizer::work(std::vector<glm::uvec2>& output) const {
+    void Rasterizer::work(std::vector<RasResult>& output) const {
         output.clear();
 
         const std::array<glm::vec2, 3> edges{
@@ -195,24 +195,36 @@ namespace moonrock {
         }
 
         const auto [min, max] = this->make_min_max();
+        const auto triangle_area_times_2 = ::sign(this->m_vertices[0], this->m_vertices[1], this->m_vertices[2]);
 
         for (uint32_t x = min.x; x < max.x; ++x) {
             for (uint32_t y = min.y; y < max.y; ++y) {
-                glm::vec2 sample_point{ static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f };
+                const glm::vec2 sample_point{ static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f };
+
+                const auto w0 = ::sign(this->m_vertices[1], this->m_vertices[2], sample_point) / triangle_area_times_2;
+                const auto w1 = ::sign(this->m_vertices[2], this->m_vertices[0], sample_point) / triangle_area_times_2;
+                const auto w2 = ::sign(this->m_vertices[0], this->m_vertices[1], sample_point) / triangle_area_times_2;
+
+                RasResult result;
+                result.m_coord = glm::uvec2{x, y};
+                result.m_barycentric_coords[0] = w0;
+                result.m_barycentric_coords[1] = w1;
+                result.m_barycentric_coords[2] = w2;
+
                 if (::PointInTriangle(sample_point, this->m_vertices[0], this->m_vertices[1], this->m_vertices[2])) {
-                    output.push_back(glm::uvec2{x, y});
+                    output.push_back(result);
                 }
                 else {
                     for (const auto& [v0, v1] : left_edges) {
                         // Check if the point is on the line using linear function `y = ax + b`
                         if ((sample_point.y - v0.y)*(v0.x - v1.x) == (v0.y - v1.y)*(sample_point.x - v0.x)) {
-                            output.push_back(glm::uvec2{x, y});
+                            output.push_back(result);
                         }
                     }
 
                     for (const auto& [v0, v1] : top_edges) {
                         if ((sample_point.y - v0.y)*(v0.x - v1.x) == (v0.y - v1.y)*(sample_point.x - v0.x)) {
-                            output.push_back(glm::uvec2{x, y});
+                            output.push_back(result);
                         }
                     }
                 }
@@ -220,8 +232,8 @@ namespace moonrock {
         }
     }
 
-    std::vector<glm::uvec2> Rasterizer::work() const {
-        std::vector<glm::uvec2> output;
+    std::vector<Rasterizer::RasResult> Rasterizer::work() const {
+        std::vector<RasResult> output;
         this->work(output);
         return output;
     }
