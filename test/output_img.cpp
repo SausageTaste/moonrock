@@ -37,7 +37,7 @@ int main() {
     moonrock::VertexBuffer vbuf;
     moonrock::Shader shader;
 
-    const auto texture = ::load_image_from_disk("C:\\Users\\woos8\\Downloads\\[mitsuba choco] __suruga_runa_high_school_fleet_drawn_by_mitsuba_choco__599aa97d9061bfcc8897a6a395795084.png");
+    const auto texture = ::load_image_from_disk("C:\\Users\\woos8\\Downloads\\albedo_map.jpg");
 
     depth_map.fill(moonrock::Pixel1Float32{1});
 
