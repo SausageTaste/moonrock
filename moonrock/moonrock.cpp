@@ -270,11 +270,11 @@ namespace moonrock {
 
     bool export_image_to_disk(const char* const output_path, const ImageUint2D& img) {
         static_assert(4 == sizeof(Pixel4Uint8));
-        return 0 != stbi_write_png(output_path, img.width(), img.height(), 4, img.data(), img.height() * 4);
+        return 0 != stbi_write_png(output_path, img.width(), img.height(), 4, img.data(), img.width() * 4);
     }
 
     bool export_image_to_disk(const char* const output_path, const Image2D<Pixel1Uint8>& img) {
-        return 0 != stbi_write_png(output_path, img.width(), img.height(), 1, img.data(), img.height());
+        return 0 != stbi_write_png(output_path, img.width(), img.height(), 1, img.data(), img.width());
     }
 
 }
