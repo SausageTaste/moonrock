@@ -237,8 +237,8 @@ namespace moonrock {
 
     private:
         struct RasResult {
+            glm::vec3 m_barycentric_coords;
             glm::uvec2 m_coord;
-            std::array<float, 3> m_barycentric_coords;
         };
 
     public:
@@ -284,8 +284,9 @@ namespace moonrock {
                 this->m_rasterizer.m_vertices[2] = glm::vec2{ (v2.x * 0.5 + 0.5) * output_img.width(), (v2.y * 0.5 + 0.5) * output_img.height() };
 
                 for (auto v : this->m_rasterizer.work()) {
-                    const auto current_depth = v0.z * v.m_barycentric_coords[0] + v1.z * v.m_barycentric_coords[1] + v2.z * v.m_barycentric_coords[2];
+                    const auto current_depth = glm::dot(v.m_barycentric_coords, glm::vec3{v0.z, v1.z, v2.z});
                     auto& depth_pixel = depth_map.pixel(v.m_coord);
+
                     if (current_depth < depth_pixel.color()) {
                         output_img.pixel(v.m_coord).set_color_xyzw(colors[i % colors.size()]);
                         depth_pixel = v0.z * v.m_barycentric_coords[0] + v1.z * v.m_barycentric_coords[1] + v2.z * v.m_barycentric_coords[2];
