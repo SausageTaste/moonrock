@@ -264,11 +264,13 @@ namespace moonrock {
     public:
         template <typename _PixelTyp>
         void draw(const VertexBuffer& vert_buf, Image2D<_PixelTyp>& output_img, Image2D<Pixel1Float32>& depth_map) {
-            std::array<glm::vec4, 4> colors{
-                glm::vec4{1, 0, 0, 1},
+            std::array<glm::vec4, 6> colors{
                 glm::vec4{1, 0, 0, 1},
                 glm::vec4{0, 1, 0, 1},
-                glm::vec4{0, 1, 0, 1},
+                glm::vec4{0, 0, 1, 1},
+                glm::vec4{1, 1, 0, 1},
+                glm::vec4{1, 0, 1, 1},
+                glm::vec4{1, 1, 0, 1},
             };
 
             this->m_rasterizer.m_domain_width = output_img.width();
@@ -284,12 +286,19 @@ namespace moonrock {
                 this->m_rasterizer.m_vertices[2] = glm::vec2{ (v2.x * 0.5 + 0.5) * output_img.width(), (v2.y * 0.5 + 0.5) * output_img.height() };
 
                 for (auto v : this->m_rasterizer.work()) {
-                    const auto current_depth = glm::dot(v.m_barycentric_coords, glm::vec3{v0.z, v1.z, v2.z});
+                    const auto current_depth = interpolate_barycentric(v0.z, v1.z, v2.z, v.m_barycentric_coords);
                     auto& depth_pixel = depth_map.pixel(v.m_coord);
 
                     if (current_depth < depth_pixel.color()) {
-                        output_img.pixel(v.m_coord).set_color_xyzw(colors[i % colors.size()]);
-                        depth_pixel = v0.z * v.m_barycentric_coords[0] + v1.z * v.m_barycentric_coords[1] + v2.z * v.m_barycentric_coords[2];
+                        const auto current_color = interpolate_barycentric(
+                            colors[i % colors.size()],
+                            colors[(i + 1) % colors.size()],
+                            colors[(i + 2) % colors.size()],
+                            v.m_barycentric_coords
+                        );
+
+                        output_img.pixel(v.m_coord).set_color_xyzw(current_color);
+                        depth_pixel = current_depth;
                     }
                 }
             }
