@@ -284,8 +284,12 @@ namespace moonrock {
                 this->m_rasterizer.m_vertices[2] = glm::vec2{ (v2.x * 0.5 + 0.5) * output_img.width(), (v2.y * 0.5 + 0.5) * output_img.height() };
 
                 for (auto v : this->m_rasterizer.work()) {
-                    output_img.pixel(v.m_coord).set_color_xyzw(colors[i % colors.size()]);
-                    depth_map.pixel(v.m_coord) = v0.z * v.m_barycentric_coords[0] + v1.z * v.m_barycentric_coords[1] + v2.z * v.m_barycentric_coords[2];
+                    const auto current_depth = v0.z * v.m_barycentric_coords[0] + v1.z * v.m_barycentric_coords[1] + v2.z * v.m_barycentric_coords[2];
+                    auto& depth_pixel = depth_map.pixel(v.m_coord);
+                    if (current_depth < depth_pixel.color()) {
+                        output_img.pixel(v.m_coord).set_color_xyzw(colors[i % colors.size()]);
+                        depth_pixel = v0.z * v.m_barycentric_coords[0] + v1.z * v.m_barycentric_coords[1] + v2.z * v.m_barycentric_coords[2];
+                    }
                 }
             }
         }
