@@ -86,6 +86,8 @@ namespace moonrock {
 
         float color_w() const;
 
+        glm::vec4 color_xyzw() const;
+
         void set_color_x(const float value);
 
         void set_color_y(const float value);
@@ -174,6 +176,10 @@ namespace moonrock {
             return this->m_height;
         }
 
+        auto dimensions() const {
+            return glm::vec2{ this->width(), this->height() };
+        }
+
         auto data() const {
             return this->m_data.data();
         }
@@ -200,6 +206,14 @@ namespace moonrock {
 
         auto& pixel(const glm::uvec2 v) const {
             return this->pixel(v.x, v.y);
+        }
+
+        auto& sample_nearest(const float x, const float y) const {
+            return this->m_data[this->calc_index(x * this->width(), y * this->height())];
+        }
+
+        auto& sample_nearest(const glm::vec2& coords) const {
+            return this->sample_nearest(coords.x, coords.y);
         }
 
         void fill(const _PixelTyp& value) {
@@ -263,7 +277,9 @@ namespace moonrock {
 
     public:
         template <typename _PixelTyp>
-        void draw(const VertexBuffer& vert_buf, Image2D<_PixelTyp>& output_img, Image2D<Pixel1Float32>& depth_map) {
+        void draw(const VertexBuffer& vert_buf, const ImageUint2D& albedo_map, Image2D<_PixelTyp>& output_img, Image2D<Pixel1Float32>& depth_map) {
+            assert(output_img.dimensions() == depth_map.dimensions());
+
             std::array<glm::vec4, 6> colors{
                 glm::vec4{1, 0, 0, 1},
                 glm::vec4{0, 1, 0, 1},
@@ -298,7 +314,14 @@ namespace moonrock {
                             v.m_barycentric_coords
                         );
 
-                        output_img.pixel(v.m_coord).set_color_xyzw(current_color);
+                        const auto current_uv_coord = interpolate_barycentric(
+                            vert_buf.m_vertices[3 * i + 0].m_uv_coord,
+                            vert_buf.m_vertices[3 * i + 1].m_uv_coord,
+                            vert_buf.m_vertices[3 * i + 2].m_uv_coord,
+                            v.m_barycentric_coords
+                        );
+
+                        output_img.pixel(v.m_coord).set_color_xyzw(albedo_map.sample_nearest(current_uv_coord).color_xyzw());
                         depth_pixel = current_depth;
                     }
                 }

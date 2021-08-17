@@ -14,6 +14,7 @@ namespace moonrock {
 
     public:
         glm::vec3 m_position;
+        glm::vec2 m_uv_coord;
 
     };
 

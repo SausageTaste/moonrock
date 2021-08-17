@@ -87,6 +87,15 @@ namespace moonrock {
         return static_cast<float>(this->m_color.w) / 255.f;
     }
 
+    glm::vec4 Pixel4Uint8::color_xyzw() const {
+        return glm::vec4{
+            this->color_x(),
+            this->color_y(),
+            this->color_z(),
+            this->color_w()
+        };
+    }
+
     void Pixel4Uint8::set_color_x(const float value) {
         this->m_color.x = static_cast<uint8_t>(std::min<float>(value, 1) * 255);
     }
