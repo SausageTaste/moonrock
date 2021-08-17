@@ -5,12 +5,67 @@
 #include <cstdint>
 #include <iostream>
 
-#include <glm/glm.hpp>
+#include "mesh.h"
 
 
 namespace moonrock {
 
+    class Pixel1Float32;
     class Pixel4Float32;
+
+
+    class Pixel1Uint8 {
+
+    private:
+        uint8_t m_color = 0;
+
+    public:
+        Pixel1Uint8() = default;
+
+        explicit
+        Pixel1Uint8(const float color);
+
+        void operator=(const float value);
+
+        operator Pixel1Float32() const;
+
+        float color() const;
+
+        void set_color(const float value);
+
+    };
+
+
+    class Pixel1Float32 {
+
+    private:
+        float m_color = 0;
+
+    public:
+        Pixel1Float32() = default;
+
+        explicit
+        Pixel1Float32(const float color) {
+            this->set_color(color);
+        }
+
+        void operator=(const float value) {
+            this->set_color(value);
+        }
+
+        operator Pixel1Uint8() const {
+            return Pixel1Uint8{this->color()};
+        }
+
+        float color() const {
+            return this->m_color;
+        }
+
+        void set_color(const float value) {
+            this->m_color = value;
+        }
+
+    };
 
 
     class Pixel4Uint8 {
@@ -31,6 +86,8 @@ namespace moonrock {
 
         float color_w() const;
 
+        glm::vec4 color_xyzw() const;
+
         void set_color_x(const float value);
 
         void set_color_y(const float value);
@@ -40,6 +97,10 @@ namespace moonrock {
         void set_color_w(const float value);
 
         void set_color_xyzw(const float x, const float y, const float z, const float w);
+
+        void set_color_xyzw(const glm::vec4& v) {
+            this->set_color_xyzw(v.x, v.y, v.z, v.w);
+        }
 
     };
 
@@ -74,6 +135,15 @@ namespace moonrock {
             return this->m_color.w;
         }
 
+        glm::vec4 color_xyzw() const {
+            return glm::vec4{
+                this->color_x(),
+                this->color_y(),
+                this->color_z(),
+                this->color_w()
+            };
+        }
+
         void set_color_x(const float value);
 
         void set_color_y(const float value);
@@ -83,6 +153,10 @@ namespace moonrock {
         void set_color_w(const float value);
 
         void set_color_xyzw(const float x, const float y, const float z, const float w);
+
+        void set_color_xyzw(const glm::vec4& v) {
+            this->set_color_xyzw(v.x, v.y, v.z, v.w);
+        }
 
     };
 
@@ -111,8 +185,20 @@ namespace moonrock {
             return this->m_height;
         }
 
+        auto dimensions() const {
+            return glm::vec2{ this->width(), this->height() };
+        }
+
         auto data() const {
             return this->m_data.data();
+        }
+
+        auto& vector() {
+            return this->m_data;
+        }
+
+        auto& vector() const {
+            return this->m_data;
         }
 
         auto& pixel(const uint32_t x, const uint32_t y) {
@@ -131,10 +217,56 @@ namespace moonrock {
             return this->pixel(v.x, v.y);
         }
 
-        void clear(const float x, const float y, const float z, const float w) {
-            for (auto& pixel : this->m_data) {
-                pixel.set_color_xyzw(x, y, z, w);
+        glm::vec4 sample_nearest(const float x, const float y) const {
+            return this->m_data[this->calc_index(x * this->width(), y * this->height())].color_xyzw();
+        }
+
+        glm::vec4 sample_nearest(const glm::vec2& coords) const {
+            return this->sample_nearest(coords.x, coords.y);
+        }
+
+        glm::vec4 sample_bilinear(const float x, const float y) const {
+            const auto x_width = x * this->width();
+            const auto y_height = y * this->height();
+
+            float _;
+            const auto x_frac = std::modf(x_width, &_);
+            const auto y_frac = std::modf(y_height, &_);
+
+            const auto x_floor = static_cast<uint32_t>(std::floorf(x_width));
+            const auto y_floor = static_cast<uint32_t>(std::floorf(y_height));
+            const auto x_ceiling = std::min(x_floor + 1, this->width() - 1);
+            const auto y_ceiling = std::min(y_floor + 1, this->height() - 1);
+
+            const auto lit00 = this->pixel(x_floor,   y_floor  ).color_xyzw();
+            const auto lit01 = this->pixel(x_floor,   y_ceiling).color_xyzw();
+            const auto lit10 = this->pixel(x_ceiling, y_floor  ).color_xyzw();
+            const auto lit11 = this->pixel(x_ceiling, y_ceiling).color_xyzw();
+
+            const auto lit_y0    = glm::mix( lit00,  lit10, x_frac);
+            const auto lit_y1    = glm::mix( lit01,  lit11, x_frac);
+            const auto lit_total = glm::mix(lit_y0, lit_y1, y_frac);
+
+            return lit_total;
+        }
+
+        glm::vec4 sample_bilinear(const glm::vec2& coords) const {
+            return this->sample_bilinear(coords.x, coords.y);
+        }
+
+        void fill(const _PixelTyp& value) {
+            for (auto& x : this->vector()) {
+                x = value;
             }
+        }
+
+        template <typename _DstPixelTyp>
+        auto convert() {
+            Image2D<_DstPixelTyp> output{ this->width(), this->height() };
+            for (size_t i = 0; i < output.vector().size(); ++i) {
+                output.vector().at(i) = static_cast<_DstPixelTyp>(this->vector().at(i));
+            }
+            return output;
         }
 
     private:
@@ -150,42 +282,30 @@ namespace moonrock {
 
     bool export_image_to_disk(const char* const output_path, const ImageUint2D& img);
 
+    bool export_image_to_disk(const char* const output_path, const Image2D<Pixel1Uint8>& img);
+
+    ImageUint2D parse_image_from_memory(const uint8_t* const buf, const size_t buf_size);
+
 
     class Rasterizer {
+
+    private:
+        struct RasResult {
+            glm::vec3 m_barycentric_coords;
+            glm::uvec2 m_coord;
+        };
 
     public:
         std::array<glm::vec2, 3> m_vertices;
         uint32_t m_domain_width = 0, m_domain_height = 0;
 
     public:
-        void work(std::vector<glm::uvec2>& output) const;
+        void work(std::vector<RasResult>& output) const;
 
-        std::vector<glm::uvec2> work() const;
+        std::vector<RasResult> work() const;
 
     private:
         std::pair<glm::uvec2, glm::uvec2> make_min_max() const;
-
-    };
-
-
-    class Vertex {
-
-    public:
-        glm::vec3 m_position;
-        Pixel4Float32 m_color;
-
-    };
-
-
-    class VertexBuffer {
-
-    public:
-        std::vector<Vertex> m_vertices;
-
-    public:
-        size_t size() const {
-            return this->m_vertices.size();
-        }
 
     };
 
@@ -196,21 +316,10 @@ namespace moonrock {
         Rasterizer m_rasterizer;
 
     public:
-        template <typename _PixelTyp>
-        void draw(const VertexBuffer& vert_buf, Image2D<_PixelTyp>& output_img) {
-            this->m_rasterizer.m_domain_width = output_img.width();
-            this->m_rasterizer.m_domain_height = output_img.height();
+        void draw(const VertexBuffer& vert_buf, const ImageUint2D& albedo_map, ImageUint2D& output_img, Image2D<Pixel1Float32>& depth_map);
 
-            for (size_t i = 0; i < vert_buf.size() / 3; ++i) {
-                this->m_rasterizer.m_vertices[0] = vert_buf.m_vertices[3 * i + 0].m_position;
-                this->m_rasterizer.m_vertices[1] = vert_buf.m_vertices[3 * i + 1].m_position;
-                this->m_rasterizer.m_vertices[2] = vert_buf.m_vertices[3 * i + 2].m_position;
-
-                for (auto v : this->m_rasterizer.work()) {
-                    output_img.pixel(v) = static_cast<_PixelTyp>(vert_buf.m_vertices[3 * i + 0].m_color);
-                }
-            }
-        }
+    private:
+        static glm::vec3 transform_vertex(const glm::vec3& v);
 
     };
 
