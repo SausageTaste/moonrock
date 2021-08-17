@@ -77,6 +77,10 @@ namespace moonrock {
     public:
         Pixel4Uint8();
 
+        Pixel4Uint8(const float x, const float y, const float z, const float w) {
+            this->set_color_xyzw(x, y, z, w);
+        }
+
         operator Pixel4Float32() const;
 
         float color_x() const;
@@ -320,7 +324,7 @@ namespace moonrock {
         void draw(const VertexBuffer& vert_buf, const ImageUint2D& albedo_map, ImageUint2D& output_img, Image2D<Pixel1Float32>& depth_map);
 
     private:
-        static glm::vec3 transform_vertex(const glm::vec3& v);
+        static glm::vec3 transform_vertex(const glm::vec3& v, const float seed);
 
     };
 

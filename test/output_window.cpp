@@ -1,3 +1,5 @@
+#include <chrono>
+#include <thread>
 #include <cassert>
 #include <fstream>
 #include <iostream>
@@ -51,7 +53,7 @@ namespace {
             if (0 == gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
                 throw std::runtime_error("failed to load OpenGL functions");
             }
-            glfwSwapInterval(0);
+            glfwSwapInterval(1);
         }
 
         ~WindowGLFW(void) {
@@ -257,6 +259,34 @@ namespace {
 
 namespace {
 
+    class Timer {
+
+    private:
+        std::chrono::high_resolution_clock::time_point m_last_checked;
+
+    public:
+        Timer() {
+            this->check();
+        }
+
+        void check() {
+            this->m_last_checked = std::chrono::high_resolution_clock::now();
+        }
+
+        double elapsed() const {
+            return this->cast_to_sec(std::chrono::high_resolution_clock::now() - this->m_last_checked);
+        }
+
+    private:
+        template <typename T>
+        static double cast_to_sec(const T& duration) {
+            const auto a = std::chrono::duration_cast<std::chrono::nanoseconds>(duration);
+            return static_cast<double>(a.count()) / 1'000'000'000.0;
+        }
+
+    };
+
+
     class RenderMaster {
 
     private:
@@ -354,12 +384,28 @@ namespace {
 int main() {
     ::RenderMaster renderer;
 
-    const auto image = ::load_image_from_disk("C:\\Users\\woos8\\Downloads\\albedo_map.jpg");
-    renderer.set_image(image);
+    moonrock::ImageUint2D color_buffer{ 1024, 1024 };
+    moonrock::Image2D<moonrock::Pixel1Float32> depth_map{ 1024, 1024 };
+    moonrock::VertexBuffer vbuf;
+    moonrock::Shader shader;
 
-    while (renderer.update()) {
+    const auto texture = ::load_image_from_disk("C:\\Users\\woos8\\Downloads\\albedo_map.jpg");
+    depth_map.fill(moonrock::Pixel1Float32{1});
 
-    }
+    moonrock::gen_mesh_quad(vbuf.m_vertices, glm::vec3{-1, -1, 0}, glm::vec3{-1, 1, 0}, glm::vec3{1, 1, 0}, glm::vec3{1, -1, 0});
+    moonrock::gen_mesh_quad(vbuf.m_vertices, glm::vec3{0, -1 + 0.3, -1}, glm::vec3{0, 1 + 0.3, -1}, glm::vec3{0, 1 + 0.3, 1}, glm::vec3{0, -1 + 0.3, 1});
+
+    ::Timer timer;
+
+    do {
+        if (timer.elapsed() > 0.2) {
+            timer.check();
+            color_buffer.fill(moonrock::Pixel4Uint8(0, 0, 0, 1));
+            shader.draw(vbuf, texture, color_buffer, depth_map);
+            renderer.set_image(color_buffer);
+        }
+
+    } while (renderer.update());
 
     return 0;
 }
