@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cmath>
 #include <array>
 #include <vector>
 #include <cstdint>
@@ -233,8 +234,8 @@ namespace moonrock {
             const auto x_frac = std::modf(x_width, &_);
             const auto y_frac = std::modf(y_height, &_);
 
-            const auto x_floor = static_cast<uint32_t>(std::floorf(x_width));
-            const auto y_floor = static_cast<uint32_t>(std::floorf(y_height));
+            const auto x_floor = static_cast<uint32_t>(std::floor(x_width));
+            const auto y_floor = static_cast<uint32_t>(std::floor(y_height));
             const auto x_ceiling = std::min(x_floor + 1, this->width() - 1);
             const auto y_ceiling = std::min(y_floor + 1, this->height() - 1);
 

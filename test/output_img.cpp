@@ -1,5 +1,6 @@
-#include <iostream>
 #include <fstream>
+#include <iostream>
+#include <exception>
 
 #include "moonrock/moonrock.h"
 
@@ -10,7 +11,7 @@ namespace {
         std::fstream file;
         file.open(path, std::ios::in | std::ios::ate | std::ios::binary);
         if (!file.is_open())
-            throw std::exception{"failed to open file"};
+            throw std::runtime_error{"failed to open file"};
 
         const auto content_size = file.tellg();
         file.seekg(0);
