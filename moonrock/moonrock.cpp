@@ -310,6 +310,7 @@ namespace moonrock {
     }
 
     bool export_image_to_disk(const char* const output_path, const Image2D<Pixel1Uint8>& img) {
+        static_assert(1 == sizeof(Pixel1Uint8));
         return 0 != stbi_write_png(output_path, img.width(), img.height(), 1, img.data(), img.width());
     }
 
