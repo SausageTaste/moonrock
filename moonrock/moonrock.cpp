@@ -1,5 +1,6 @@
 #include "moonrock.h"
 
+#include <limits>
 #include <chrono>
 
 #define STBI_NO_PSD
@@ -11,6 +12,7 @@
 #include <stb_image_write.h>
 
 
+#include "utils.h"
 #include "math_tool.h"
 
 
@@ -37,12 +39,15 @@ namespace {
         return !(has_neg && has_pos);
     }
 
-    template <typename T>
-    T get_cur_sec() {
-        const auto a = std::chrono::high_resolution_clock::now();
-        const auto b = std::chrono::time_point_cast<std::chrono::nanoseconds>(a);
-        const auto c = static_cast<T>(b.time_since_epoch().count()) / 1'000'000'000.0;
-        return c;
+}
+
+
+namespace {
+
+    glm::vec3 correct_barycentric_coords_perspective(const glm::vec3& barycentric, const float w0, const float w1, const float w2) {
+        glm::vec3 output{ barycentric[0] * w0, barycentric[1] * w1, barycentric[2] * w2 };
+        output /= (output.x + output.y + output.z);
+        return output;
     }
 
 }
@@ -180,7 +185,7 @@ namespace moonrock {
 // Rasterizer
 namespace moonrock {
 
-    void Rasterizer::work(std::vector<RasResult>& output) const {
+    void Rasterizer::work(result_list_t& output) const {
         output.clear();
 
         const std::array<glm::vec2, 3> edges{
@@ -226,30 +231,20 @@ namespace moonrock {
             for (uint32_t y = min.y; y < max.y; ++y) {
                 const glm::vec2 sample_point{ static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f };
 
-                const auto w0 = ::sign(this->m_vertices[1], this->m_vertices[2], sample_point) / triangle_area_times_2;
-                const auto w1 = ::sign(this->m_vertices[2], this->m_vertices[0], sample_point) / triangle_area_times_2;
-                const auto w2 = ::sign(this->m_vertices[0], this->m_vertices[1], sample_point) / triangle_area_times_2;
-
-                RasResult result;
-                result.m_coord = glm::uvec2{x, y};
-                result.m_barycentric_coords[0] = w0;
-                result.m_barycentric_coords[1] = w1;
-                result.m_barycentric_coords[2] = w2;
-
                 if (::PointInTriangle(sample_point, this->m_vertices[0], this->m_vertices[1], this->m_vertices[2])) {
-                    output.push_back(result);
+                    output.push_back(this->make_one_result(x, y, sample_point, triangle_area_times_2));
                 }
                 else {
                     for (const auto& [v0, v1] : left_edges) {
                         // Check if the point is on the line using linear function `y = ax + b`
                         if ((sample_point.y - v0.y)*(v0.x - v1.x) == (v0.y - v1.y)*(sample_point.x - v0.x)) {
-                            output.push_back(result);
+                            output.push_back(this->make_one_result(x, y, sample_point, triangle_area_times_2));
                         }
                     }
 
                     for (const auto& [v0, v1] : top_edges) {
                         if ((sample_point.y - v0.y)*(v0.x - v1.x) == (v0.y - v1.y)*(sample_point.x - v0.x)) {
-                            output.push_back(result);
+                            output.push_back(this->make_one_result(x, y, sample_point, triangle_area_times_2));
                         }
                     }
                 }
@@ -257,8 +252,8 @@ namespace moonrock {
         }
     }
 
-    std::vector<Rasterizer::RasResult> Rasterizer::work() const {
-        std::vector<RasResult> output;
+    Rasterizer::result_list_t Rasterizer::work() const {
+        result_list_t output;
         this->work(output);
         return output;
     }
@@ -282,10 +277,26 @@ namespace moonrock {
         min.x = std::max<float>(min.x, 0);
         min.y = std::max<float>(min.y, 0);
 
-        max.x = std::min<float>(max.x, this->m_domain_width);
-        max.y = std::min<float>(max.y, this->m_domain_height);
+        max.x = std::min<float>(max.x, static_cast<float>(this->m_domain_width));
+        max.y = std::min<float>(max.y, static_cast<float>(this->m_domain_height));
 
         return std::make_pair(static_cast<glm::uvec2>(min), static_cast<glm::uvec2>(max));
+    }
+
+    Rasterizer::RasResult Rasterizer::make_one_result(
+        const uint32_t x,
+        const uint32_t y,
+        const glm::vec2 sample_point,
+        const float triangle_area_times_2
+    ) const {
+        RasResult result;
+
+        result.m_coord = glm::uvec2{x, y};
+        result.m_barycentric_coords[0] = ::sign(this->m_vertices[1], this->m_vertices[2], sample_point) / triangle_area_times_2;
+        result.m_barycentric_coords[1] = ::sign(this->m_vertices[2], this->m_vertices[0], sample_point) / triangle_area_times_2;
+        result.m_barycentric_coords[2] = ::sign(this->m_vertices[0], this->m_vertices[1], sample_point) / triangle_area_times_2;
+
+        return result;
     }
 
 }
@@ -299,14 +310,16 @@ namespace moonrock {
     }
 
     bool export_image_to_disk(const char* const output_path, const Image2D<Pixel1Uint8>& img) {
+        static_assert(1 == sizeof(Pixel1Uint8));
         return 0 != stbi_write_png(output_path, img.width(), img.height(), 1, img.data(), img.width());
     }
 
     ImageUint2D parse_image_from_memory(const uint8_t* const buf, const size_t buf_size) {
         static_assert(std::is_same<uint8_t, stbi_uc>::value);
+        assert(buf_size <= std::numeric_limits<int>::max());
 
         int width, height, channels;
-        const auto pixels = stbi_load_from_memory(buf, buf_size, &width, &height, &channels, STBI_rgb_alpha);
+        const auto pixels = stbi_load_from_memory(buf, static_cast<int>(buf_size), &width, &height, &channels, STBI_rgb_alpha);
         if (nullptr == pixels)
             throw std::exception{};
 
@@ -328,35 +341,36 @@ namespace moonrock {
     void Shader::draw(const VertexBuffer& vert_buf, const ImageUint2D& albedo_map, ImageUint2D& output_img, Image2D<Pixel1Float32>& depth_map) {
         assert(output_img.dimensions() == depth_map.dimensions());
 
-        const auto cur_sec = ::get_cur_sec<float>();
+        const auto cur_sec = static_cast<float>(get_cur_sec());
+        const auto half_width = output_img.width() * 0.5;
+        const auto half_height = output_img.height() * 0.5;
+        Rasterizer::result_list_t rasterized;
 
         this->m_rasterizer.m_domain_width = output_img.width();
         this->m_rasterizer.m_domain_height = output_img.height();
 
         for (size_t i = 0; i < vert_buf.size() / 3; ++i) {
-            const auto v0 = this->transform_vertex(vert_buf.m_vertices[3 * i + 0].m_position, cur_sec);
-            const auto v1 = this->transform_vertex(vert_buf.m_vertices[3 * i + 1].m_position, cur_sec);
-            const auto v2 = this->transform_vertex(vert_buf.m_vertices[3 * i + 2].m_position, cur_sec);
+            const auto p0 = vert_buf.m_vertices[3 * i + 0];
+            const auto p1 = vert_buf.m_vertices[3 * i + 1];
+            const auto p2 = vert_buf.m_vertices[3 * i + 2];
 
-            this->m_rasterizer.m_vertices[0] = glm::vec2{ (v0.x * 0.5 + 0.5) * output_img.width(), (v0.y * 0.5 + 0.5) * output_img.height() };
-            this->m_rasterizer.m_vertices[1] = glm::vec2{ (v1.x * 0.5 + 0.5) * output_img.width(), (v1.y * 0.5 + 0.5) * output_img.height() };
-            this->m_rasterizer.m_vertices[2] = glm::vec2{ (v2.x * 0.5 + 0.5) * output_img.width(), (v2.y * 0.5 + 0.5) * output_img.height() };
+            const auto v0 = this->transform_vertex(p0.m_position, cur_sec);
+            const auto v1 = this->transform_vertex(p1.m_position, cur_sec);
+            const auto v2 = this->transform_vertex(p2.m_position, cur_sec);
 
-            for (auto v : this->m_rasterizer.work()) {
+            this->m_rasterizer.m_vertices[0] = glm::vec2{ (v0.x * half_width + half_width), (v0.y * half_height + half_height) };
+            this->m_rasterizer.m_vertices[1] = glm::vec2{ (v1.x * half_width + half_width), (v1.y * half_height + half_height) };
+            this->m_rasterizer.m_vertices[2] = glm::vec2{ (v2.x * half_width + half_width), (v2.y * half_height + half_height) };
+            this->m_rasterizer.work(rasterized);
+
+            for (const auto& v : rasterized) {
+                const auto barycentric_perspective = ::correct_barycentric_coords_perspective(v.m_barycentric_coords, v0.w, v1.w, v2.w);
                 const auto current_depth = 1.f / interpolate_barycentric(1.f / v0.z, 1.f / v1.z, 1.f / v2.z, v.m_barycentric_coords);
-                //const auto current_depth = interpolate_barycentric(v0.z, v1.z, v2.z, v.m_barycentric_coords);
                 auto& depth_pixel = depth_map.pixel(v.m_coord);
 
                 if (current_depth < depth_pixel.color()) {
-                    const auto current_uv_coord = interpolate_barycentric(
-                        vert_buf.m_vertices[3 * i + 0].m_uv_coord,
-                        vert_buf.m_vertices[3 * i + 1].m_uv_coord,
-                        vert_buf.m_vertices[3 * i + 2].m_uv_coord,
-                        v.m_barycentric_coords
-                    );
-
-                    const auto current_albedo = albedo_map.sample_nearest(current_uv_coord);
-
+                    const auto current_uv_coord = interpolate_barycentric(p0.m_uv_coord, p1.m_uv_coord, p2.m_uv_coord, barycentric_perspective);
+                    const auto current_albedo = albedo_map.sample_bilinear(current_uv_coord);
                     output_img.pixel(v.m_coord).set_color_xyzw(current_albedo);
                     depth_pixel = current_depth;
                 }
@@ -364,13 +378,19 @@ namespace moonrock {
         }
     }
 
-    glm::vec3 Shader::transform_vertex(const glm::vec3& v, const float seed) {
-        const auto model_mat = glm::rotate(glm::mat4{1}, glm::radians<float>(seed * 10), glm::vec3{0, 1, 0});
-        const auto view_mat = glm::translate(glm::mat4{1}, glm::vec3{0, 0, -3});
-        const auto proj_mat = glm::perspective<float>(glm::radians<float>(90), 1, 0.1, 100);
-        const auto transformed = proj_mat * view_mat * model_mat * glm::vec4{v, 1};
-        const auto perspective_devided = glm::vec3{ transformed } / transformed.w;
-        return perspective_devided;
+    glm::vec4 Shader::transform_vertex(const glm::vec3& v, const float seed) {
+        const glm::mat4 identity{1};
+        const auto model_mat = glm::rotate(identity, glm::radians<float>(seed * 10), glm::vec3{0, 1, 0});
+        const auto view_mat = glm::translate(identity, glm::vec3{0, 0, -3});
+        const auto proj_mat = glm::perspective<float>(glm::radians(90.f), 1.f, 0.1f, 100.f);
+
+        auto transformed = proj_mat * view_mat * model_mat * glm::vec4{v, 1};
+        transformed.w = 1.f / transformed.w;
+        transformed.x *= transformed.w;
+        transformed.y *= transformed.w;
+        transformed.z *= transformed.w;
+
+        return transformed;
     }
 
 }

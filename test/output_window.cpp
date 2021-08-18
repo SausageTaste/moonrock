@@ -10,6 +10,7 @@
 #include <GLFW/glfw3.h>
 
 #include <moonrock/moonrock.h>
+#include <moonrock/utils.h>
 
 
 // GLFW
@@ -259,34 +260,6 @@ namespace {
 
 namespace {
 
-    class Timer {
-
-    private:
-        std::chrono::high_resolution_clock::time_point m_last_checked;
-
-    public:
-        Timer() {
-            this->check();
-        }
-
-        void check() {
-            this->m_last_checked = std::chrono::high_resolution_clock::now();
-        }
-
-        double elapsed() const {
-            return this->cast_to_sec(std::chrono::high_resolution_clock::now() - this->m_last_checked);
-        }
-
-    private:
-        template <typename T>
-        static double cast_to_sec(const T& duration) {
-            const auto a = std::chrono::duration_cast<std::chrono::nanoseconds>(duration);
-            return static_cast<double>(a.count()) / 1'000'000'000.0;
-        }
-
-    };
-
-
     class RenderMaster {
 
     private:
@@ -296,7 +269,7 @@ namespace {
 
     public:
         RenderMaster()
-            : m_window("Moonrock renderer", 512, 512, false)
+            : m_window("Moonrock renderer", 800, 800, false)
         {
             this->m_shader.init(
                 "#version 330 core\n"
@@ -384,6 +357,7 @@ namespace {
 int main() {
     ::RenderMaster renderer;
 
+    moonrock::Timer timer;
     moonrock::ImageUint2D color_buffer{ 1024, 1024 };
     moonrock::Image2D<moonrock::Pixel1Float32> depth_map{ 1024, 1024 };
     moonrock::VertexBuffer vbuf;
@@ -393,8 +367,6 @@ int main() {
 
     moonrock::gen_mesh_quad(vbuf.m_vertices, glm::vec3{-1, -1, 0}, glm::vec3{-1, 1, 0}, glm::vec3{1, 1, 0}, glm::vec3{1, -1, 0});
     moonrock::gen_mesh_quad(vbuf.m_vertices, glm::vec3{0, -1 + 0.3, -1}, glm::vec3{0, 1 + 0.3, -1}, glm::vec3{0, 1 + 0.3, 1}, glm::vec3{0, -1 + 0.3, 1});
-
-    ::Timer timer;
 
     do {
         if (timer.elapsed() > (1.0 / 60.0)) {

@@ -231,8 +231,8 @@ namespace moonrock {
         }
 
         glm::vec4 sample_bilinear(const float x, const float y) const {
-            const auto x_width = x * this->width();
-            const auto y_height = y * this->height();
+            const auto x_width = x * (this->width() - 1);
+            const auto y_height = y * (this->height() - 1);
 
             float _;
             const auto x_frac = std::modf(x_width, &_);
@@ -301,16 +301,26 @@ namespace moonrock {
         };
 
     public:
+        using result_list_t = std::vector<RasResult>;
+
+    public:
         std::array<glm::vec2, 3> m_vertices;
         uint32_t m_domain_width = 0, m_domain_height = 0;
 
     public:
-        void work(std::vector<RasResult>& output) const;
+        void work(result_list_t& output) const;
 
-        std::vector<RasResult> work() const;
+        result_list_t work() const;
 
     private:
         std::pair<glm::uvec2, glm::uvec2> make_min_max() const;
+
+        RasResult make_one_result(
+            const uint32_t x,
+            const uint32_t y,
+            const glm::vec2 sample_point,
+            const float triangle_area_times_2
+        ) const;
 
     };
 
@@ -324,7 +334,7 @@ namespace moonrock {
         void draw(const VertexBuffer& vert_buf, const ImageUint2D& albedo_map, ImageUint2D& output_img, Image2D<Pixel1Float32>& depth_map);
 
     private:
-        static glm::vec3 transform_vertex(const glm::vec3& v, const float seed);
+        static glm::vec4 transform_vertex(const glm::vec3& v, const float seed);
 
     };
 
