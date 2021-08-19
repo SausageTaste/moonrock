@@ -13,6 +13,46 @@
 #include <moonrock/utils.h>
 
 
+namespace {
+
+    moonrock::ImageUint2D load_image_from_disk(const char* const path) {
+        std::fstream file;
+        file.open(path, std::ios::in | std::ios::ate | std::ios::binary);
+        if (!file.is_open())
+            throw std::runtime_error{"failed to open file"};
+
+        const auto content_size = file.tellg();
+        file.seekg(0);
+
+        std::vector<uint8_t> buffer(content_size);
+        file.read(reinterpret_cast<char*>(buffer.data()), buffer.size());
+
+        return moonrock::parse_image_from_memory(buffer.data(), buffer.size());
+    }
+
+    std::string load_str_from_disk(const char* const path) {
+        std::fstream file;
+        file.open(path, std::ios::in | std::ios::ate | std::ios::binary);
+        if (!file.is_open())
+            throw std::runtime_error{"failed to open file"};
+
+        const auto content_size = file.tellg();
+        file.seekg(0);
+
+        std::string buffer;
+        buffer.resize(content_size);
+        file.read(reinterpret_cast<char*>(buffer.data()), buffer.size());
+
+        return buffer;
+    }
+
+    std::string load_str_from_disk(const std::string& path) {
+        return ::load_str_from_disk(path.c_str());
+    }
+
+}
+
+
 // GLFW
 namespace {
 
@@ -271,39 +311,11 @@ namespace {
         RenderMaster()
             : m_window("Moonrock renderer", 800, 800, false)
         {
+            const auto resource_folder = moonrock::find_parent_folder_containing_folder_named("resource") + "/resource";
+
             this->m_shader.init(
-                "#version 330 core\n"
-                "\n"
-                "vec2 POSITIONS[3] = vec2[](\n"
-                "    vec2(-1.0,  1.0),\n"
-                "    vec2(-1.0, -3.0),\n"
-                "    vec2( 3.0,  1.0)\n"
-                ");\n"
-                "\n"
-                "vec2 UV_COORDS[3] = vec2[](\n"
-                "    vec2(0.0, 0.0),\n"
-                "    vec2(0.0, 2.0),\n"
-                "    vec2(2.0, 0.0)\n"
-                ");\n"
-                "\n"
-                "out vec2 v_uv_coord;\n"
-                "\n"
-                "void main() {\n"
-                "    gl_Position = vec4(POSITIONS[gl_VertexID], 0.0, 1.0);\n"
-                "    v_uv_coord = UV_COORDS[gl_VertexID];\n"
-                "}\n"
-                ,
-                "#version 330 core\n"
-                "\n"
-                "in vec2 v_uv_coord;\n"
-                "\n"
-                "uniform sampler2D u_image;\n"
-                "\n"
-                "out vec4 f_color;\n"
-                "\n"
-                "void main() {\n"
-                "    f_color = texture(u_image, v_uv_coord);\n"
-                "}\n"
+                ::load_str_from_disk(resource_folder + "/fill_screen.vert").c_str(),
+                ::load_str_from_disk(resource_folder + "/fill_screen.frag").c_str()
             );
 
             glClearColor(0, 0, 0, 1);
@@ -334,26 +346,6 @@ namespace {
 }
 
 
-namespace {
-
-    moonrock::ImageUint2D load_image_from_disk(const char* const path) {
-        std::fstream file;
-        file.open(path, std::ios::in | std::ios::ate | std::ios::binary);
-        if (!file.is_open())
-            throw std::runtime_error{"failed to open file"};
-
-        const auto content_size = file.tellg();
-        file.seekg(0);
-
-        std::vector<uint8_t> buffer(content_size);
-        file.read(reinterpret_cast<char*>(buffer.data()), buffer.size());
-
-        return moonrock::parse_image_from_memory(buffer.data(), buffer.size());
-    }
-
-}
-
-
 int main() {
     ::RenderMaster renderer;
 
@@ -367,6 +359,9 @@ int main() {
 
     moonrock::gen_mesh_quad(vbuf.m_vertices, glm::vec3{-1, -1, 0}, glm::vec3{-1, 1, 0}, glm::vec3{1, 1, 0}, glm::vec3{1, -1, 0});
     moonrock::gen_mesh_quad(vbuf.m_vertices, glm::vec3{0, -1 + 0.3, -1}, glm::vec3{0, 1 + 0.3, -1}, glm::vec3{0, 1 + 0.3, 1}, glm::vec3{0, -1 + 0.3, 1});
+
+    const auto a = moonrock::find_parent_folder_containing_folder_named("resource");
+    std::cout << a.c_str() << std::endl;
 
     do {
         if (timer.elapsed() > (1.0 / 60.0)) {
