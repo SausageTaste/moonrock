@@ -8,31 +8,37 @@ project(moonrock
 
 
 FetchContent_Declare(
-    fetch_moonrock_stb
+    fetch_stb
     GIT_REPOSITORY https://github.com/nothings/stb
 )
 
 FetchContent_Declare(
-    fetch_moonrock_glm
+    fetch_glm
     GIT_REPOSITORY https://github.com/g-truc/glm
 )
 
 FetchContent_Declare(
-    fetch_moonrock_glfw
+    fetch_glfw
     GIT_REPOSITORY https://github.com/glfw/glfw
 )
 
 FetchContent_Declare(
-    fetch_moonrock_glad
+    fetch_glad
     GIT_REPOSITORY https://github.com/Dav1dde/glad
 )
 
-FetchContent_MakeAvailable(fetch_moonrock_stb)
-FetchContent_MakeAvailable(fetch_moonrock_glm)
-FetchContent_MakeAvailable(fetch_moonrock_glfw)
-FetchContent_MakeAvailable(fetch_moonrock_glad)
+FetchContent_Declare(
+    fetch_dal_blender
+    GIT_REPOSITORY https://github.com/SausageTaste/io_scene_dalbaragi
+    GIT_TAG        main
+)
+
+FetchContent_MakeAvailable(fetch_stb)
+FetchContent_MakeAvailable(fetch_glm)
+FetchContent_MakeAvailable(fetch_glfw)
+FetchContent_MakeAvailable(fetch_glad)
+FetchContent_MakeAvailable(fetch_dal_blender)
 
 
 add_subdirectory(moonrock)
-
 add_subdirectory(test)

@@ -12,10 +12,12 @@ target_include_directories(moonrock
     INTERFACE
         ${PROJECT_SOURCE_DIR}
     PRIVATE
-        ${fetch_moonrock_stb_SOURCE_DIR}
+        ${fetch_stb_SOURCE_DIR}
 )
 
 target_link_libraries(moonrock
     PUBLIC
         glm::glm
+    PRIVATE
+        dalbaragi_model_parser
 )
