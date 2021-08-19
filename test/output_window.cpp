@@ -15,7 +15,8 @@
 
 namespace {
 
-    moonrock::ImageUint2D load_image_from_disk(const char* const path) {
+    template <typename _Container>
+    _Container load_from_disk(const char* const path) {
         std::fstream file;
         file.open(path, std::ios::in | std::ios::ate | std::ios::binary);
         if (!file.is_open())
@@ -24,30 +25,25 @@ namespace {
         const auto content_size = file.tellg();
         file.seekg(0);
 
-        std::vector<uint8_t> buffer(content_size);
-        file.read(reinterpret_cast<char*>(buffer.data()), buffer.size());
-
-        return moonrock::parse_image_from_memory(buffer.data(), buffer.size());
-    }
-
-    std::string load_str_from_disk(const char* const path) {
-        std::fstream file;
-        file.open(path, std::ios::in | std::ios::ate | std::ios::binary);
-        if (!file.is_open())
-            throw std::runtime_error{"failed to open file"};
-
-        const auto content_size = file.tellg();
-        file.seekg(0);
-
-        std::string buffer;
+        _Container buffer;
         buffer.resize(content_size);
         file.read(reinterpret_cast<char*>(buffer.data()), buffer.size());
 
         return buffer;
     }
 
+    template <typename _Container>
+    _Container load_from_disk(const std::string path) {
+        return load_from_disk<_Container>(path.c_str());
+    }
+
+    moonrock::ImageUint2D load_image_from_disk(const std::string& path) {
+        const auto buffer = load_from_disk<std::vector<uint8_t>>(path);
+        return moonrock::parse_image_from_memory(buffer.data(), buffer.size());
+    }
+
     std::string load_str_from_disk(const std::string& path) {
-        return ::load_str_from_disk(path.c_str());
+        return ::load_from_disk<std::string>(path);
     }
 
 }
