@@ -1,9 +1,8 @@
 #pragma once
 
 #include <array>
-#include <vector>
-#include <cstdint>
-#include <iostream>
+#include <string>
+#include <optional>
 
 #include "image.h"
 
@@ -14,6 +13,7 @@ namespace moonrock {
 
     public:
         glm::vec3 m_position;
+        glm::vec3 m_normal;
         glm::vec2 m_uv_coord;
 
     };
@@ -34,7 +34,15 @@ namespace moonrock {
 
 
     class Material {
-        ImageUint2D* m_albedo_map = nullptr;
+
+    public:
+        std::string m_albedo_map;
+        float m_roughness;
+        float m_metallic;
+        bool m_alpha_blending;
+
+        ImageUint2D* m_albedo_map_tex = nullptr;
+
     };
 
 
@@ -44,6 +52,7 @@ namespace moonrock {
     public:
         VertexBuffer<_VertexTyp> m_mesh;
         Material m_material;
+        glm::vec3 m_weight_center;
 
     };
 
@@ -58,6 +67,6 @@ namespace moonrock {
 
     void gen_mesh_quad(std::vector<VertexStatic>& output, const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& p2, const glm::vec3& p3);
 
-    void build_model_from_dmd(const uint8_t* const buf, const size_t buf_size);
+    std::optional<ModelStatic> build_model_from_dmd(const uint8_t* const data, const size_t data_size);
 
 }
