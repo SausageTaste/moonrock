@@ -352,7 +352,7 @@ int main() {
     moonrock::Timer timer;
     moonrock::ImageUint2D color_buffer{ 1024, 1024 };
     moonrock::Image2D<moonrock::Pixel1Float32> depth_map{ 1024, 1024 };
-    moonrock::VertexBuffer vbuf;
+    moonrock::VertexBuffer<moonrock::VertexStatic> vbuf;
     moonrock::Shader shader;
 
     const auto texture = ::load_image_from_disk("C:\\Users\\woos8\\Downloads\\albedo_map.jpg");

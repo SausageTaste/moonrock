@@ -4,6 +4,7 @@ add_library(moonrock
     math_tool.h                 math_tool.cpp
     mesh.h                      mesh.cpp
     utils.h                     utils.cpp
+    image.h                     image.cpp
 )
 
 target_compile_features(moonrock PUBLIC cxx_std_17)
