@@ -1,8 +1,6 @@
 #include <chrono>
 #include <thread>
-#include <future>
 #include <cassert>
-#include <fstream>
 #include <iostream>
 #include <exception>
 
@@ -10,44 +8,8 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
-#include <moonrock/moonrock.h>
-#include <moonrock/utils.h>
 
-
-namespace {
-
-    template <typename _Container>
-    _Container load_from_disk(const char* const path) {
-        std::fstream file;
-        file.open(path, std::ios::in | std::ios::ate | std::ios::binary);
-        if (!file.is_open())
-            throw std::runtime_error{"failed to open file"};
-
-        const auto content_size = file.tellg();
-        file.seekg(0);
-
-        _Container buffer;
-        buffer.resize(content_size);
-        file.read(reinterpret_cast<char*>(buffer.data()), buffer.size());
-
-        return buffer;
-    }
-
-    template <typename _Container>
-    _Container load_from_disk(const std::string path) {
-        return load_from_disk<_Container>(path.c_str());
-    }
-
-    moonrock::ImageUint2D load_image_from_disk(const std::string& path) {
-        const auto buffer = load_from_disk<std::vector<uint8_t>>(path);
-        return moonrock::parse_image_from_memory(buffer.data(), buffer.size());
-    }
-
-    std::string load_str_from_disk(const std::string& path) {
-        return ::load_from_disk<std::string>(path);
-    }
-
-}
+#include "render_things.h"
 
 
 // GLFW
@@ -318,8 +280,8 @@ namespace {
             const auto resource_folder = moonrock::find_parent_folder_containing_folder_named("resource") + "/resource";
 
             this->m_shader.init(
-                ::load_str_from_disk(resource_folder + "/fill_screen.vert").c_str(),
-                ::load_str_from_disk(resource_folder + "/fill_screen.frag").c_str()
+                load_str_from_disk(resource_folder + "/fill_screen.vert").c_str(),
+                load_str_from_disk(resource_folder + "/fill_screen.frag").c_str()
             );
 
             this->m_texture.init();
@@ -355,30 +317,13 @@ namespace {
 
 int main() {
     ::RenderMaster renderer;
-
+    RenderThings render_things;
     moonrock::Timer timer;
-    moonrock::Framebuffer fbuf{ 1024, 1024 };
-    moonrock::VertexBuffer<moonrock::VertexStatic> vbuf;
-    moonrock::Shader shader;
-
-    const auto resource_path = moonrock::find_parent_folder_containing_folder_named("resource") + "/resource";
-    const auto model_buffer = ::load_from_disk<std::vector<uint8_t>>(resource_path + "/Character Running.dmd");
-    const auto model_data = moonrock::build_model_from_dmd(model_buffer.data(), model_buffer.size());
-    const auto texture = ::load_image_from_disk("C:\\Users\\woos8\\Downloads\\albedo_map.jpg");
-
-    moonrock::gen_mesh_quad(vbuf.m_vertices, glm::vec3{-1, -1, 0}, glm::vec3{-1, 1, 0}, glm::vec3{1, 1, 0}, glm::vec3{1, -1, 0});
-    moonrock::gen_mesh_quad(vbuf.m_vertices, glm::vec3{0, -1 + 0.3, -1}, glm::vec3{0, 1 + 0.3, -1}, glm::vec3{0, 1 + 0.3, 1}, glm::vec3{0, -1 + 0.3, 1});
-
-    auto render = [&]() {
-        fbuf.m_color_buffer.fill(moonrock::Pixel4Uint8(0, 0, 0, 1));
-        fbuf.m_depth_map.fill(moonrock::Pixel1Float32{1});
-        shader.draw(model_data->m_units.front().m_mesh, texture, fbuf);
-    };
 
     do {
         if (timer.elapsed() > 1) {
-            render();
-            renderer.set_image(fbuf.m_color_buffer);
+            render_things.render();
+            renderer.set_image(render_things.m_fbuf.m_color_buffer);
             timer.check();
         }
 

@@ -171,6 +171,13 @@ namespace moonrock {
         uint32_t m_width, m_height;
 
     public:
+        Image2D()
+            : m_width(0)
+            , m_height(0)
+        {
+
+        }
+
         Image2D(const uint32_t width, const uint32_t height)
             : m_data(width * height)
             , m_width(width)
@@ -178,6 +185,10 @@ namespace moonrock {
         {
 
         }
+
+        Image2D(Image2D&&) = default;
+
+        Image2D& operator=(Image2D&&) = default;
 
         auto width() const {
             return this->m_width;

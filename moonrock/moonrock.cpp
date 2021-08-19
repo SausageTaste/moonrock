@@ -210,8 +210,6 @@ namespace moonrock {
 namespace moonrock {
 
     void Shader::draw(const VertexBuffer<VertexStatic>& vert_buf, const ImageUint2D& albedo_map, Framebuffer& output) {
-        assert(output_img.dimensions() == depth_map.dimensions());
-
         const auto cur_sec = static_cast<float>(get_cur_sec());
         const auto half_width = output.width() * 0.5;
         const auto half_height = output.height() * 0.5;
