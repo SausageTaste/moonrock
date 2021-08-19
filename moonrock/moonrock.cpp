@@ -209,16 +209,16 @@ namespace moonrock {
 // Shader
 namespace moonrock {
 
-    void Shader::draw(const VertexBuffer<VertexStatic>& vert_buf, const ImageUint2D& albedo_map, ImageUint2D& output_img, Image2D<Pixel1Float32>& depth_map) {
+    void Shader::draw(const VertexBuffer<VertexStatic>& vert_buf, const ImageUint2D& albedo_map, Framebuffer& output) {
         assert(output_img.dimensions() == depth_map.dimensions());
 
         const auto cur_sec = static_cast<float>(get_cur_sec());
-        const auto half_width = output_img.width() * 0.5;
-        const auto half_height = output_img.height() * 0.5;
+        const auto half_width = output.width() * 0.5;
+        const auto half_height = output.height() * 0.5;
         Rasterizer::result_list_t rasterized;
 
-        this->m_rasterizer.m_domain_width = output_img.width();
-        this->m_rasterizer.m_domain_height = output_img.height();
+        this->m_rasterizer.m_domain_width = output.width();
+        this->m_rasterizer.m_domain_height = output.height();
 
         for (size_t i = 0; i < vert_buf.size() / 3; ++i) {
             const auto p0 = vert_buf.m_vertices[3 * i + 0];
@@ -237,12 +237,12 @@ namespace moonrock {
             for (const auto& v : rasterized) {
                 const auto barycentric_perspective = ::correct_barycentric_coords_perspective(v.m_barycentric_coords, v0.w, v1.w, v2.w);
                 const auto current_depth = 1.f / interpolate_barycentric(1.f / v0.z, 1.f / v1.z, 1.f / v2.z, v.m_barycentric_coords);
-                auto& depth_pixel = depth_map.pixel(v.m_coord);
+                auto& depth_pixel = output.m_depth_map.pixel(v.m_coord);
 
                 if (current_depth < depth_pixel.color()) {
                     const auto current_uv_coord = interpolate_barycentric(p0.m_uv_coord, p1.m_uv_coord, p2.m_uv_coord, barycentric_perspective);
                     const auto current_albedo = albedo_map.sample_bilinear(current_uv_coord);
-                    output_img.pixel(v.m_coord).set_color_xyzw(current_albedo);
+                    output.m_color_buffer.pixel(v.m_coord).set_color_xyzw(current_albedo);
                     depth_pixel = current_depth;
                 }
             }

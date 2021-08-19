@@ -257,7 +257,7 @@ namespace {
         GLuint m_tex = 0;
 
     public:
-        void init(const moonrock::ImageUint2D& image) {
+        void init() {
             this->destroy();
 
             glGenTextures(1, &this->m_tex);
@@ -270,8 +270,6 @@ namespace {
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 //*/
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.width(), image.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, image.data());
-            glGenerateMipmap(GL_TEXTURE_2D);
             glBindTexture(GL_TEXTURE_2D, 0);
         }
 
@@ -280,6 +278,15 @@ namespace {
                 glDeleteTextures(1, &this->m_tex);
                 this->m_tex = 0;
             }
+        }
+
+        void update(const moonrock::ImageUint2D& image) {
+            assert(this->is_ready());
+
+            glBindTexture(GL_TEXTURE_2D, this->m_tex);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.width(), image.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, image.data());
+            glGenerateMipmap(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, 0);
         }
 
         bool is_ready() const {
@@ -315,6 +322,8 @@ namespace {
                 ::load_str_from_disk(resource_folder + "/fill_screen.frag").c_str()
             );
 
+            this->m_texture.init();
+
             glClearColor(0, 0, 0, 1);
         }
 
@@ -331,11 +340,12 @@ namespace {
             }
 
             this->m_window.swap_buffers();
+            glFlush();
             return !this->m_window.should_close();
         }
 
         void set_image(const moonrock::ImageUint2D& image) {
-            this->m_texture.init(image);
+            this->m_texture.update(image);
         }
 
     };
@@ -347,8 +357,7 @@ int main() {
     ::RenderMaster renderer;
 
     moonrock::Timer timer;
-    moonrock::ImageUint2D color_buffer{ 1024, 1024 };
-    moonrock::Image2D<moonrock::Pixel1Float32> depth_map{ 1024, 1024 };
+    moonrock::Framebuffer fbuf{ 1024, 1024 };
     moonrock::VertexBuffer<moonrock::VertexStatic> vbuf;
     moonrock::Shader shader;
 
@@ -361,16 +370,16 @@ int main() {
     moonrock::gen_mesh_quad(vbuf.m_vertices, glm::vec3{0, -1 + 0.3, -1}, glm::vec3{0, 1 + 0.3, -1}, glm::vec3{0, 1 + 0.3, 1}, glm::vec3{0, -1 + 0.3, 1});
 
     auto render = [&]() {
-        color_buffer.fill(moonrock::Pixel4Uint8(0, 0, 0, 1));
-        depth_map.fill(moonrock::Pixel1Float32{1});
-        shader.draw(model_data->m_units.front().m_mesh, texture, color_buffer, depth_map);
+        fbuf.m_color_buffer.fill(moonrock::Pixel4Uint8(0, 0, 0, 1));
+        fbuf.m_depth_map.fill(moonrock::Pixel1Float32{1});
+        shader.draw(model_data->m_units.front().m_mesh, texture, fbuf);
     };
-    auto fut = std::async(std::launch::async, render);
 
     do {
-        if (fut.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
-            renderer.set_image(color_buffer);
-            auto fut = std::async(std::launch::async, render);
+        if (timer.elapsed() > 1) {
+            render();
+            renderer.set_image(fbuf.m_color_buffer);
+            timer.check();
         }
 
     } while (renderer.update());

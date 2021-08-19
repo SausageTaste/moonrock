@@ -18,6 +18,31 @@ namespace moonrock {
     ImageUint2D parse_image_from_memory(const uint8_t* const buf, const size_t buf_size);
 
 
+    class Framebuffer {
+
+    public:
+        moonrock::ImageUint2D m_color_buffer;
+        moonrock::Image2D<moonrock::Pixel1Float32> m_depth_map;
+
+    public:
+        Framebuffer(const uint32_t width, const uint32_t height)
+            : m_color_buffer(width, height)
+            , m_depth_map(width, height)
+        {
+
+        }
+
+        auto width() const {
+            return this->m_color_buffer.width();
+        }
+
+        auto height() const {
+            return this->m_color_buffer.height();
+        }
+
+    };
+
+
     class Rasterizer {
 
     private:
@@ -57,7 +82,7 @@ namespace moonrock {
         Rasterizer m_rasterizer;
 
     public:
-        void draw(const VertexBuffer<VertexStatic>& vert_buf, const ImageUint2D& albedo_map, ImageUint2D& output_img, Image2D<Pixel1Float32>& depth_map);
+        void draw(const VertexBuffer<VertexStatic>& vert_buf, const ImageUint2D& albedo_map, Framebuffer& output);
 
     private:
         static glm::vec4 transform_vertex(const glm::vec3& v, const float seed);
