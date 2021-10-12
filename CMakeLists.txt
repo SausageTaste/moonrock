@@ -28,8 +28,8 @@ FetchContent_Declare(
 )
 
 FetchContent_Declare(
-    fetch_dal_blender
-    GIT_REPOSITORY https://github.com/SausageTaste/io_scene_dalbaragi
+    fetch_daltools
+    GIT_REPOSITORY https://github.com/SausageTaste/DalbaragiTools
     GIT_TAG        main
 )
 
@@ -37,7 +37,7 @@ FetchContent_MakeAvailable(fetch_stb)
 FetchContent_MakeAvailable(fetch_glm)
 FetchContent_MakeAvailable(fetch_glfw)
 FetchContent_MakeAvailable(fetch_glad)
-FetchContent_MakeAvailable(fetch_dal_blender)
+FetchContent_MakeAvailable(fetch_daltools)
 
 
 add_subdirectory(moonrock)

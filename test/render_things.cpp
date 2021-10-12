@@ -16,7 +16,10 @@ RenderThings::RenderThings()
 {
     const auto resource_path = moonrock::find_parent_folder_containing_folder_named("resource") + "/resource";
     const auto model_buffer = load_from_disk<std::vector<uint8_t>>(resource_path + "/Character Running.dmd");
-    this->m_model = moonrock::build_model_from_dmd(model_buffer.data(), model_buffer.size()).value();
+    if (!moonrock::build_model_from_dmd(model_buffer.data(), model_buffer.size(), this->m_model)) {
+        throw std::runtime_error{ "Failed to build model" };
+    }
+
     this->m_texture = load_image_from_disk("C:\\Users\\woos8\\Downloads\\albedo_map.jpg");
 }
 

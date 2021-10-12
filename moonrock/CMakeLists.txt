@@ -20,5 +20,5 @@ target_link_libraries(moonrock
     PUBLIC
         glm::glm
     PRIVATE
-        dalbaragi_model_parser
+        dalbaragi::daltools
 )

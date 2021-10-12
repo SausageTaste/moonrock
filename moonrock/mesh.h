@@ -67,6 +67,6 @@ namespace moonrock {
 
     void gen_mesh_quad(std::vector<VertexStatic>& output, const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& p2, const glm::vec3& p3);
 
-    std::optional<ModelStatic> build_model_from_dmd(const uint8_t* const data, const size_t data_size);
+    bool build_model_from_dmd(const uint8_t* const data, const size_t data_size, ModelStatic& output);
 
 }

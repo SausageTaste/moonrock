@@ -1,6 +1,6 @@
 #include "mesh.h"
 
-#include <dal_model_parser.h>
+#include <daltools/model_parser.h>
 
 
 namespace {
@@ -48,16 +48,14 @@ namespace moonrock {
         output.push_back(VertexStatic{ p3, glm::vec3{0}, glm::vec2{1, 0} });
     }
 
-    std::optional<ModelStatic> build_model_from_dmd(const uint8_t* const data, const size_t data_size) {
+    bool build_model_from_dmd(const uint8_t* const data, const size_t data_size, ModelStatic& output) {
         const auto unzipped = dal::parser::unzip_dmd(data, data_size);
         if (!unzipped)
-            return std::nullopt;
+            return false;
 
         const auto model_data = dal::parser::parse_dmd(unzipped->data(), unzipped->size());
         if (!model_data)
-            return std::nullopt;
-
-        ModelStatic output;
+            return false;
 
         for (const auto& src_unit : model_data->m_units_indexed) {
             auto& dst_unit = output.m_units.emplace_back();
@@ -93,7 +91,7 @@ namespace moonrock {
             dst_unit.m_weight_center = ::calc_weight_center(dst_unit.m_mesh.m_vertices);
         }
 
-        return output;
+        return true;
     }
 
 }
