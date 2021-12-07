@@ -50,133 +50,14 @@ namespace {
         return output;
     }
 
-}
+    glm::vec4 transform_vertex(const glm::vec3& v, const glm::mat4& mat) {
+        auto transformed = mat * glm::vec4{v, 1};
+        transformed.w = 1.f / transformed.w;
+        transformed.x *= transformed.w;
+        transformed.y *= transformed.w;
+        transformed.z *= transformed.w;
 
-
-// Pixel1Uint8
-namespace moonrock {
-
-    Pixel1Uint8::Pixel1Uint8(const float color) {
-        this->set_color(color);
-    }
-
-    void Pixel1Uint8::operator=(const float value) {
-        this->set_color(value);
-    }
-
-    Pixel1Uint8::operator Pixel1Float32() const {
-        return Pixel1Float32{this->color()};
-    }
-
-    float Pixel1Uint8::color() const {
-        return static_cast<float>(this->m_color) / 255.f;
-    }
-
-    void Pixel1Uint8::set_color(const float value) {
-        this->m_color = static_cast<uint8_t>(std::min<float>(value, 1) * 255);
-    }
-
-}
-
-
-// Pixel4Uint8
-namespace moonrock {
-
-    Pixel4Uint8::Pixel4Uint8() {
-        this->m_color = glm::uvec4{0, 0, 0, 255};
-    }
-
-    Pixel4Uint8::operator Pixel4Float32() const {
-        Pixel4Float32 output;
-        output.set_color_xyzw(this->color_x(), this->color_y(), this->color_z(), this->color_w());
-        return output;
-    }
-
-    float Pixel4Uint8::color_x() const {
-        return static_cast<float>(this->m_color.x) / 255.f;
-    }
-
-    float Pixel4Uint8::color_y() const {
-        return static_cast<float>(this->m_color.y) / 255.f;
-    }
-
-    float Pixel4Uint8::color_z() const {
-        return static_cast<float>(this->m_color.z) / 255.f;
-    }
-
-    float Pixel4Uint8::color_w() const {
-        return static_cast<float>(this->m_color.w) / 255.f;
-    }
-
-    glm::vec4 Pixel4Uint8::color_xyzw() const {
-        return glm::vec4{
-            this->color_x(),
-            this->color_y(),
-            this->color_z(),
-            this->color_w()
-        };
-    }
-
-    void Pixel4Uint8::set_color_x(const float value) {
-        this->m_color.x = static_cast<uint8_t>(std::min<float>(value, 1) * 255);
-    }
-
-    void Pixel4Uint8::set_color_y(const float value) {
-        this->m_color.y = static_cast<uint8_t>(std::min<float>(value, 1) * 255);
-    }
-
-    void Pixel4Uint8::set_color_z(const float value) {
-        this->m_color.z = static_cast<uint8_t>(std::min<float>(value, 1) * 255);
-    }
-
-    void Pixel4Uint8::set_color_w(const float value) {
-        this->m_color.w = static_cast<uint8_t>(std::min<float>(value, 1) * 255);
-    }
-
-    void Pixel4Uint8::set_color_xyzw(const float x, const float y, const float z, const float w) {
-        this->set_color_x(x);
-        this->set_color_y(y);
-        this->set_color_z(z);
-        this->set_color_w(w);
-    }
-
-}
-
-
-// Pixel4Float32
-namespace moonrock {
-
-    Pixel4Float32::Pixel4Float32() {
-        this->m_color = glm::vec4{0, 0, 0, 1};
-    }
-
-    Pixel4Float32::operator Pixel4Uint8() const {
-        Pixel4Uint8 output;
-        output.set_color_xyzw(this->color_x(), this->color_y(), this->color_z(), this->color_w());
-        return output;
-    }
-
-    void Pixel4Float32::set_color_x(const float value) {
-        this->m_color.x = value;
-    }
-
-    void Pixel4Float32::set_color_y(const float value) {
-        this->m_color.y = value;
-    }
-
-    void Pixel4Float32::set_color_z(const float value) {
-        this->m_color.z = value;
-    }
-
-    void Pixel4Float32::set_color_w(const float value) {
-        this->m_color.w = value;
-    }
-
-    void Pixel4Float32::set_color_xyzw(const float x, const float y, const float z, const float w) {
-        this->set_color_x(x);
-        this->set_color_y(y);
-        this->set_color_z(z);
-        this->set_color_w(w);
+        return transformed;
     }
 
 }
@@ -277,6 +158,9 @@ namespace moonrock {
         min.x = std::max<float>(min.x, 0);
         min.y = std::max<float>(min.y, 0);
 
+        max.x = std::max<float>(max.x, 0);
+        max.y = std::max<float>(max.y, 0);
+
         max.x = std::min<float>(max.x, static_cast<float>(this->m_domain_width));
         max.y = std::min<float>(max.y, static_cast<float>(this->m_domain_height));
 
@@ -338,25 +222,27 @@ namespace moonrock {
 // Shader
 namespace moonrock {
 
-    void Shader::draw(const VertexBuffer& vert_buf, const ImageUint2D& albedo_map, ImageUint2D& output_img, Image2D<Pixel1Float32>& depth_map) {
-        assert(output_img.dimensions() == depth_map.dimensions());
-
-        const auto cur_sec = static_cast<float>(get_cur_sec());
-        const auto half_width = output_img.width() * 0.5;
-        const auto half_height = output_img.height() * 0.5;
+    void Shader::draw(
+        const glm::mat4& transform_mat,
+        const VertexBuffer<VertexStatic>& vert_buf,
+        const ImageUint2D& albedo_map,
+        Framebuffer& output
+    ) {
+        const auto half_width = output.width() * 0.5;
+        const auto half_height = output.height() * 0.5;
         Rasterizer::result_list_t rasterized;
 
-        this->m_rasterizer.m_domain_width = output_img.width();
-        this->m_rasterizer.m_domain_height = output_img.height();
+        this->m_rasterizer.m_domain_width = output.width();
+        this->m_rasterizer.m_domain_height = output.height();
 
         for (size_t i = 0; i < vert_buf.size() / 3; ++i) {
             const auto p0 = vert_buf.m_vertices[3 * i + 0];
             const auto p1 = vert_buf.m_vertices[3 * i + 1];
             const auto p2 = vert_buf.m_vertices[3 * i + 2];
 
-            const auto v0 = this->transform_vertex(p0.m_position, cur_sec);
-            const auto v1 = this->transform_vertex(p1.m_position, cur_sec);
-            const auto v2 = this->transform_vertex(p2.m_position, cur_sec);
+            const auto v0 = ::transform_vertex(p0.m_position, transform_mat);
+            const auto v1 = ::transform_vertex(p1.m_position, transform_mat);
+            const auto v2 = ::transform_vertex(p2.m_position, transform_mat);
 
             this->m_rasterizer.m_vertices[0] = glm::vec2{ (v0.x * half_width + half_width), (v0.y * half_height + half_height) };
             this->m_rasterizer.m_vertices[1] = glm::vec2{ (v1.x * half_width + half_width), (v1.y * half_height + half_height) };
@@ -366,31 +252,16 @@ namespace moonrock {
             for (const auto& v : rasterized) {
                 const auto barycentric_perspective = ::correct_barycentric_coords_perspective(v.m_barycentric_coords, v0.w, v1.w, v2.w);
                 const auto current_depth = 1.f / interpolate_barycentric(1.f / v0.z, 1.f / v1.z, 1.f / v2.z, v.m_barycentric_coords);
-                auto& depth_pixel = depth_map.pixel(v.m_coord);
+                auto& depth_pixel = output.m_depth_map.pixel(v.m_coord);
 
                 if (current_depth < depth_pixel.color()) {
                     const auto current_uv_coord = interpolate_barycentric(p0.m_uv_coord, p1.m_uv_coord, p2.m_uv_coord, barycentric_perspective);
                     const auto current_albedo = albedo_map.sample_bilinear(current_uv_coord);
-                    output_img.pixel(v.m_coord).set_color_xyzw(current_albedo);
+                    output.m_color_buffer.pixel(v.m_coord).set_color_xyzw(current_albedo);
                     depth_pixel = current_depth;
                 }
             }
         }
-    }
-
-    glm::vec4 Shader::transform_vertex(const glm::vec3& v, const float seed) {
-        const glm::mat4 identity{1};
-        const auto model_mat = glm::rotate(identity, glm::radians<float>(seed * 10), glm::vec3{0, 1, 0});
-        const auto view_mat = glm::translate(identity, glm::vec3{0, 0, -3});
-        const auto proj_mat = glm::perspective<float>(glm::radians(90.f), 1.f, 0.1f, 100.f);
-
-        auto transformed = proj_mat * view_mat * model_mat * glm::vec4{v, 1};
-        transformed.w = 1.f / transformed.w;
-        transformed.x *= transformed.w;
-        transformed.y *= transformed.w;
-        transformed.z *= transformed.w;
-
-        return transformed;
     }
 
 }

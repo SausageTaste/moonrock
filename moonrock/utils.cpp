@@ -1,5 +1,8 @@
 #include "utils.h"
 
+#include <sys/types.h>
+#include <sys/stat.h>
+
 
 namespace {
 
@@ -9,10 +12,39 @@ namespace {
         return static_cast<double>(a.count()) / static_cast<double>(moonrock::NANOSEC_PER_SEC);
     }
 
+    // https://stackoverflow.com/q/18100097/6819534
+    bool dirExists(const char* const path) {
+        struct stat info;
+
+        if (stat(path, &info) != 0)
+            return false;
+        else if (info.st_mode & S_IFDIR)
+            return true;
+        else
+            return false;
+    }
+
 }
 
 
 namespace moonrock {
+
+    std::string find_parent_folder_containing_folder_named(const char* const criteria) {
+        std::string cur_path = ".";
+
+        for (int i = 0; i < 10; ++i) {
+            const auto fol_path = cur_path + '/' + criteria;
+
+            if (::dirExists(fol_path.c_str())) {
+                return cur_path;
+            }
+            else {
+                cur_path += "/..";
+            }
+        }
+
+        return std::string{};
+    }
 
     double get_cur_sec() {
         const auto a = std::chrono::high_resolution_clock::now();

@@ -5,6 +5,6 @@ add_executable(moonrock_output_window
 
 target_link_libraries(moonrock_output_window
     moonrock
-    glad
-    glfw
+    SDL2main
+    SDL2-static
 )

@@ -1,342 +1,18 @@
-#include <chrono>
-#include <thread>
-#include <cassert>
+#include <string>
 #include <fstream>
-#include <iostream>
-#include <exception>
+#include <stdexcept>
 
-#include <glad/glad.h>
-#define GLFW_INCLUDE_NONE
-#include <GLFW/glfw3.h>
+#include <SDL.h>
 
 #include <moonrock/moonrock.h>
+#include <moonrock/actor.h>
 #include <moonrock/utils.h>
 
 
-// GLFW
 namespace {
 
-    constexpr unsigned int MIN_WIN_WIDTH = 128;
-    constexpr unsigned int MIN_WIN_HEIGHT = 128;
-
-
-    void callback_error(int error, const char* description) {
-        std::cout << description << std::endl;
-    }
-
-    void callback_resize_fbuf(GLFWwindow* const window, int width, int height) {
-        glViewport(0, 0, width, height);
-    }
-
-
-    class WindowGLFW {
-
-    private:
-        GLFWwindow* m_window = nullptr;
-
-    public:
-        WindowGLFW(const char* const title, int winWidth, int winHeight, bool fullscreen) {
-            glfwSetErrorCallback(callback_error);
-
-            if (GLFW_FALSE == glfwInit())
-                throw std::runtime_error("failed to initialize GLFW");
-
-            glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-            glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-            this->m_window = glfwCreateWindow(winWidth, winHeight, title, NULL, NULL);
-            if (nullptr == this->m_window)
-                throw std::runtime_error("failed to create window");
-
-            glfwSetFramebufferSizeCallback(this->m_window, ::callback_resize_fbuf);
-
-            glfwSetWindowSizeLimits(this->m_window, MIN_WIN_WIDTH, MIN_WIN_HEIGHT, GLFW_DONT_CARE, GLFW_DONT_CARE);
-            glfwMakeContextCurrent(this->m_window);
-            if (0 == gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-                throw std::runtime_error("failed to load OpenGL functions");
-            }
-            glfwSwapInterval(1);
-        }
-
-        ~WindowGLFW(void) {
-            glfwDestroyWindow(this->m_window);
-            this->m_window = nullptr;
-            glfwTerminate();
-        }
-
-        void poll_events() {
-            glfwPollEvents();
-        }
-
-        void swap_buffers(void) {
-            glfwSwapBuffers(this->m_window);
-        }
-
-        bool should_close(void) {
-            return glfwWindowShouldClose(this->m_window);
-        }
-
-        auto get_window_size(void) {
-            int w, h;
-            glfwGetFramebufferSize(this->m_window, &w, &h);
-            return std::make_pair(w, h);
-        }
-
-        auto get_mouse_pos(void) {
-            double xpos, ypos;
-            glfwGetCursorPos(this->m_window, &xpos, &ypos);
-            return std::make_pair(xpos, ypos);
-        }
-
-    };
-
-}
-
-
-// OpenGL
-namespace {
-
-    enum class ShaderType{ vertex, fragment };
-
-
-    class ShaderRAII {
-
-    private:
-        GLuint m_id;
-
-    public:
-        ShaderRAII(const ::ShaderType type, const char* const src) {
-            this->init(type, src);
-        }
-
-        ~ShaderRAII(void) {
-            this->destroy();
-        }
-
-        void init(const ::ShaderType type, const char* const src) {
-            this->destroy();
-
-            switch (type) {
-                case ::ShaderType::vertex:
-                    this->m_id = glCreateShader(GL_VERTEX_SHADER);
-                    break;
-                case ::ShaderType::fragment:
-                    this->m_id = glCreateShader(GL_FRAGMENT_SHADER);
-                    break;
-            }
-
-            assert(0 != this->m_id);
-
-            glShaderSource(this->m_id, 1, &src, nullptr);
-            glCompileShader(this->m_id);
-
-            GLint shader_compiled = GL_FALSE;
-            glGetShaderiv(this->m_id, GL_COMPILE_STATUS, &shader_compiled);
-            if (GL_TRUE != shader_compiled) {
-                constexpr auto SHADER_COMPILER_LOG_BUF_SIZE = 2048;
-                GLsizei length = 0;
-                char log[SHADER_COMPILER_LOG_BUF_SIZE];
-                glGetShaderInfoLog(this->m_id, SHADER_COMPILER_LOG_BUF_SIZE, &length, log);
-                throw std::runtime_error(log);
-            }
-        }
-
-        void destroy() {
-            if (this->is_ready()) {
-                glDeleteShader(this->m_id);
-                this->m_id = 0;
-            }
-        }
-
-        bool is_ready() const {
-            return 0 != this->m_id;
-        }
-
-        GLuint get() const {
-            return this->m_id;
-        }
-
-    };
-
-
-    class ShaderProgram {
-
-    private:
-        GLuint m_program = 0;
-
-    public:
-        ShaderProgram() = default;
-
-        ShaderProgram(const char* const vert_src, const char* const frag_src) {
-            this->init(vert_src, frag_src);
-        }
-
-        ~ShaderProgram() {
-            this->destroy();
-        }
-
-        void init(const char* const vert_src, const char* const frag_src) {
-            this->destroy();
-            this->m_program = glCreateProgram();
-            assert(0 != this->m_program);
-
-            const ::ShaderRAII vert_shader(::ShaderType::vertex, vert_src);
-            const ::ShaderRAII frag_shader(::ShaderType::fragment, frag_src);
-
-            glAttachShader(this->m_program, vert_shader.get());
-            glAttachShader(this->m_program, frag_shader.get());
-            glLinkProgram(this->m_program);
-
-            GLint success = GL_TRUE;
-            glGetProgramiv(this->m_program, GL_LINK_STATUS, &success);
-            if (GL_TRUE != success) {
-                GLsizei length = 0;
-                char log[100];
-                glGetProgramInfoLog(this->m_program, 100, &length, log);
-                throw std::runtime_error(log);
-            }
-        }
-
-        void destroy() {
-            if (this->is_ready()) {
-                glDeleteProgram(this->m_program);
-                this->m_program = 0;
-            }
-        }
-
-        bool is_ready() const {
-            return 0 != this->m_program;
-        }
-
-        void use() const {
-            glUseProgram(this->m_program);
-        }
-
-    };
-
-
-    class TextureGL {
-
-    private:
-        GLuint m_tex = 0;
-
-    public:
-        void init(const moonrock::ImageUint2D& image) {
-            this->destroy();
-
-            glGenTextures(1, &this->m_tex);
-            assert(0 != this->m_tex);
-            glBindTexture(GL_TEXTURE_2D, this->m_tex);
-//*/
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-/*/
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-//*/
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.width(), image.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, image.data());
-            glGenerateMipmap(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, 0);
-        }
-
-        void destroy() {
-            if (this->is_ready()) {
-                glDeleteTextures(1, &this->m_tex);
-                this->m_tex = 0;
-            }
-        }
-
-        bool is_ready() const {
-            return 0 != this->m_tex;
-        }
-
-        auto get() const {
-            return this->m_tex;
-        }
-
-    };
-
-}
-
-
-namespace {
-
-    class RenderMaster {
-
-    private:
-        ::WindowGLFW m_window;
-        ::ShaderProgram m_shader;
-        ::TextureGL m_texture;
-
-    public:
-        RenderMaster()
-            : m_window("Moonrock renderer", 800, 800, false)
-        {
-            this->m_shader.init(
-                "#version 330 core\n"
-                "\n"
-                "vec2 POSITIONS[3] = vec2[](\n"
-                "    vec2(-1.0,  1.0),\n"
-                "    vec2(-1.0, -3.0),\n"
-                "    vec2( 3.0,  1.0)\n"
-                ");\n"
-                "\n"
-                "vec2 UV_COORDS[3] = vec2[](\n"
-                "    vec2(0.0, 0.0),\n"
-                "    vec2(0.0, 2.0),\n"
-                "    vec2(2.0, 0.0)\n"
-                ");\n"
-                "\n"
-                "out vec2 v_uv_coord;\n"
-                "\n"
-                "void main() {\n"
-                "    gl_Position = vec4(POSITIONS[gl_VertexID], 0.0, 1.0);\n"
-                "    v_uv_coord = UV_COORDS[gl_VertexID];\n"
-                "}\n"
-                ,
-                "#version 330 core\n"
-                "\n"
-                "in vec2 v_uv_coord;\n"
-                "\n"
-                "uniform sampler2D u_image;\n"
-                "\n"
-                "out vec4 f_color;\n"
-                "\n"
-                "void main() {\n"
-                "    f_color = texture(u_image, v_uv_coord);\n"
-                "}\n"
-            );
-
-            glClearColor(0, 0, 0, 1);
-        }
-
-        bool update() {
-            this->m_window.poll_events();
-
-            glClear(GL_COLOR_BUFFER_BIT);
-
-            if (this->m_texture.is_ready()) {
-                this->m_shader.use();
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, this->m_texture.get());
-                glDrawArrays(GL_TRIANGLES, 0, 3);
-            }
-
-            this->m_window.swap_buffers();
-            return !this->m_window.should_close();
-        }
-
-        void set_image(const moonrock::ImageUint2D& image) {
-            this->m_texture.init(image);
-        }
-
-    };
-
-}
-
-
-namespace {
-
-    moonrock::ImageUint2D load_image_from_disk(const char* const path) {
+    template <typename _Container>
+    _Container load_from_disk(const char* const path) {
         std::fstream file;
         file.open(path, std::ios::in | std::ios::ate | std::ios::binary);
         if (!file.is_open())
@@ -345,41 +21,310 @@ namespace {
         const auto content_size = file.tellg();
         file.seekg(0);
 
-        std::vector<uint8_t> buffer(content_size);
+        _Container buffer;
+        buffer.resize(content_size);
         file.read(reinterpret_cast<char*>(buffer.data()), buffer.size());
 
-        return moonrock::parse_image_from_memory(buffer.data(), buffer.size());
+        return buffer;
+    }
+
+    template <typename _Container>
+    _Container load_from_disk(const std::string path) {
+        return load_from_disk<_Container>(path.c_str());
+    }
+
+    std::string load_str_from_disk(const std::string& path) {
+        return ::load_from_disk<std::string>(path);
     }
 
 }
 
 
-int main() {
-    ::RenderMaster renderer;
+// SDL
+namespace {
 
-    moonrock::Timer timer;
-    moonrock::ImageUint2D color_buffer{ 1024, 1024 };
-    moonrock::Image2D<moonrock::Pixel1Float32> depth_map{ 1024, 1024 };
-    moonrock::VertexBuffer vbuf;
-    moonrock::Shader shader;
+    bool poll_event_sdl(SDL_Event& e) {
+        return 0 != SDL_PollEvent(&e);
+    }
 
-    const auto texture = ::load_image_from_disk("C:\\Users\\woos8\\Downloads\\albedo_map.jpg");
 
-    moonrock::gen_mesh_quad(vbuf.m_vertices, glm::vec3{-1, -1, 0}, glm::vec3{-1, 1, 0}, glm::vec3{1, 1, 0}, glm::vec3{1, -1, 0});
-    moonrock::gen_mesh_quad(vbuf.m_vertices, glm::vec3{0, -1 + 0.3, -1}, glm::vec3{0, 1 + 0.3, -1}, glm::vec3{0, 1 + 0.3, 1}, glm::vec3{0, -1 + 0.3, 1});
+    class TextureSDL {
 
-    do {
-        if (timer.elapsed() > (1.0 / 60.0)) {
-            timer.check();
+    private:
+        SDL_Surface* m_surface = nullptr;
 
-            color_buffer.fill(moonrock::Pixel4Uint8(0, 0, 0, 1));
-            depth_map.fill(moonrock::Pixel1Float32{1});
-            shader.draw(vbuf, texture, color_buffer, depth_map);
-
-            renderer.set_image(color_buffer);
+    public:
+        ~TextureSDL() {
+            this->destroy();
         }
 
-    } while (renderer.update());
+        bool init_bmp(const char* const img_file_path) {
+            this->m_surface = SDL_LoadBMP(img_file_path);
+            if (nullptr != this->m_surface) {
+                return false;
+            }
+
+            return true;
+        }
+
+        bool init(
+            void* const pixels,
+            const unsigned width,
+            const unsigned height
+        ) {
+            Uint32 rmask, gmask, bmask, amask;
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+            rmask = 0xff000000;
+            gmask = 0x00ff0000;
+            bmask = 0x0000ff00;
+            amask = 0x000000ff;
+#else
+            rmask = 0x000000ff;
+            gmask = 0x0000ff00;
+            bmask = 0x00ff0000;
+            amask = 0xff000000;
+#endif
+
+            const int depth = 32;
+            const int pitch = 4 * width;
+
+            this->m_surface = SDL_CreateRGBSurfaceFrom(
+                pixels, width, height, depth, pitch, rmask, gmask, bmask, amask
+            );
+
+            if (nullptr != this->m_surface) {
+                return false;
+            }
+
+            return true;
+        }
+
+        void destroy() {
+            if (nullptr != this->m_surface) {
+                SDL_FreeSurface(this->m_surface);
+                this->m_surface = nullptr;
+            }
+        }
+
+        auto handle() const {
+            return this->m_surface;
+        }
+
+        void flip() {
+            SDL_LockSurface(this->m_surface);
+
+            int pitch = this->m_surface->pitch; // row size
+            char* temp = new char[pitch]; // intermediate buffer
+            char* pixels = (char*) this->m_surface->pixels;
+
+            for(int i = 0; i < this->m_surface->h / 2; ++i) {
+                // get pointers to the two rows to swap
+                char* row1 = pixels + i * pitch;
+                char* row2 = pixels + (this->m_surface->h - i - 1) * pitch;
+
+                // swap rows
+                memcpy(temp, row1, pitch);
+                memcpy(row1, row2, pitch);
+                memcpy(row2, temp, pitch);
+            }
+
+            delete[] temp;
+
+            SDL_UnlockSurface(this->m_surface);
+        }
+
+    };
+
+
+    class WindowSDL {
+
+    private:
+        SDL_Window* m_window = nullptr;
+        SDL_Surface* m_surface = nullptr;
+        unsigned m_window_width;
+        unsigned m_window_height;
+
+    public:
+        WindowSDL(
+            const char* const title,
+            const unsigned window_width,
+            const unsigned window_height
+        ) {
+            if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+                throw std::runtime_error{"Failed to initiate SDL"};
+            }
+
+            this->m_window = SDL_CreateWindow(
+                title,
+                SDL_WINDOWPOS_UNDEFINED,
+                SDL_WINDOWPOS_UNDEFINED,
+                static_cast<int>(window_width),
+                static_cast<int>(window_height),
+                SDL_WINDOW_SHOWN
+            );
+            if (nullptr == this->m_window) {
+                throw std::runtime_error{"Failed to create SDL window"};
+            }
+
+            this->m_surface = SDL_GetWindowSurface(this->m_window);
+
+            this->m_window_width = window_width;
+            this->m_window_height = window_height;
+        }
+
+        ~WindowSDL() {
+            if (nullptr != this->m_window) {
+                SDL_DestroyWindow(this->m_window);
+                SDL_Quit();
+            }
+
+            this->m_window = nullptr;
+            this->m_surface = nullptr;
+        }
+
+        void update_surface() {
+            SDL_UpdateWindowSurface(this->m_window);
+        }
+
+        auto window_handle() const {
+            return this->m_window;
+        }
+
+        auto surface_handle() const {
+            return this->m_surface;
+        }
+
+        auto width() const {
+            return this->m_window_width;
+        }
+
+        auto height() const {
+            return this->m_window_height;
+        }
+
+    };
+
+}
+
+
+// moonrock
+namespace {
+
+    moonrock::ImageUint2D load_image_from_disk(const std::string& path) {
+        const auto buffer = load_from_disk<std::vector<uint8_t>>(path);
+        return moonrock::parse_image_from_memory(buffer.data(), buffer.size());
+    }
+
+
+    class Renderer {
+
+    public:
+        moonrock::Framebuffer m_fbuf;
+        moonrock::Shader m_shader;
+
+        moonrock::EulerCamera m_camera;
+        moonrock::ModelStatic m_model;
+        moonrock::ImageUint2D m_texture;
+
+    public:
+        Renderer()
+           : m_fbuf(512, 512)
+        {
+            this->m_camera.pos() = glm::vec3{0, 3, 10};
+
+            const auto resource_path = moonrock::find_parent_folder_containing_folder_named("resource") + "/resource";
+            const auto model_buffer = load_from_disk<std::vector<uint8_t>>(resource_path + "/Character Running.dmd");
+            if (!moonrock::build_model_from_dmd(model_buffer.data(), model_buffer.size(), this->m_model)) {
+                throw std::runtime_error{ "Failed to build model" };
+            }
+
+            this->m_texture = load_image_from_disk(resource_path + "/Character Running.png");
+        }
+
+        void render() {
+            const auto seed = static_cast<float>(moonrock::get_cur_sec());
+
+            const glm::mat4 identity{1};
+            const auto model_mat = glm::rotate(identity, glm::radians<float>(seed * 10), glm::vec3{0, 1, 0});
+            const auto view_mat = this->m_camera.make_view_mat();
+            const auto proj_mat = glm::perspective<float>(glm::radians(90.f), 1.f, 0.1f, 100.f);
+
+            this->m_fbuf.m_color_buffer.fill(moonrock::Pixel4Uint8(0, 0, 0, 1));
+            this->m_fbuf.m_depth_map.fill(moonrock::Pixel1Float32{1});
+            this->m_shader.draw(
+                proj_mat * view_mat * model_mat,
+                this->m_model.m_units.front().m_mesh,
+                this->m_texture,
+                this->m_fbuf
+            );
+        }
+
+    };
+
+}
+
+
+int main(int argc, char* args[]) {
+    ::WindowSDL window{ "Output Display", 800, 800 };
+    ::Renderer renderer;
+    ::moonrock::Timer timer;
+
+    while (true) {
+        const auto delta_time = timer.check_get_elapsed();
+        const auto delta_time_f = static_cast<float>(delta_time);
+
+        SDL_Event e;
+        while (::poll_event_sdl(e)) {
+            if (SDL_QUIT == e.type) {
+                return 0;
+            }
+        }
+
+        glm::vec3 move_direction{ 0, 0, 0 };
+        {
+            const Uint8* states = SDL_GetKeyboardState(NULL);
+
+            if (states[SDL_SCANCODE_A]) {
+                move_direction.x -= 1;
+            }
+            if (states[SDL_SCANCODE_D]) {
+                move_direction.x += 1;
+            }
+            if (states[SDL_SCANCODE_W]) {
+                move_direction.z -= 1;
+            }
+            if (states[SDL_SCANCODE_S]) {
+                move_direction.z += 1;
+            }
+
+            if (states[SDL_SCANCODE_SPACE]) {
+                move_direction.y += 1;
+            }
+            if (states[SDL_SCANCODE_LCTRL]) {
+                move_direction.y -= 1;
+            }
+        }
+
+        constexpr float MOVE_SPEED = 2;
+        renderer.m_camera.move_forward(glm::vec3{move_direction.x, 0, move_direction.z} * delta_time_f * MOVE_SPEED);
+        renderer.m_camera.pos().y += MOVE_SPEED * move_direction.y * delta_time_f;
+
+        renderer.render();
+
+        ::TextureSDL texture;
+        texture.init(
+            renderer.m_fbuf.m_color_buffer.data(),
+            renderer.m_fbuf.m_color_buffer.width(),
+            renderer.m_fbuf.m_color_buffer.height()
+        );
+        texture.flip();
+
+        SDL_Rect rect{};
+        rect.w = window.width();
+        rect.h = window.height();
+        SDL_BlitScaled(texture.handle(), nullptr, window.surface_handle(), &rect);
+        window.update_surface();
+    }
 
     return 0;
 }
