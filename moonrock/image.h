@@ -288,7 +288,7 @@ namespace moonrock {
 
     private:
         size_t calc_index(const uint32_t x, const uint32_t y) const {
-            return x + y * this->width();
+            return (x % this->width()) + (y % this->height()) * this->width();
         }
 
     };

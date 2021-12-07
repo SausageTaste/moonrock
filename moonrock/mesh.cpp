@@ -59,11 +59,11 @@ namespace moonrock {
 
         for (const auto& src_unit : model_data->m_units_indexed) {
             auto& dst_unit = output.m_units.emplace_back();
+            dst_unit.m_mesh.m_vertices.reserve(src_unit.m_mesh.m_vertices.size());
 
-            dst_unit.m_mesh.m_vertices.resize(src_unit.m_mesh.m_vertices.size());
-            for (size_t i = 0; i < dst_unit.m_mesh.m_vertices.size(); ++i) {
-                auto& dst_vert = dst_unit.m_mesh.m_vertices[i];
-                auto& src_vert = src_unit.m_mesh.m_vertices[i];
+            for (const auto index : src_unit.m_mesh.m_indices) {
+                auto& dst_vert = dst_unit.m_mesh.m_vertices.emplace_back();
+                auto& src_vert = src_unit.m_mesh.m_vertices[index];
 
                 dst_vert.m_position = src_vert.m_position;
                 dst_vert.m_normal = src_vert.m_normal;
@@ -76,11 +76,11 @@ namespace moonrock {
 
         for (const auto& src_unit : model_data->m_units_indexed_joint) {
             auto& dst_unit = output.m_units.emplace_back();
+            dst_unit.m_mesh.m_vertices.reserve(src_unit.m_mesh.m_vertices.size());
 
-            dst_unit.m_mesh.m_vertices.resize(src_unit.m_mesh.m_vertices.size());
-            for (size_t i = 0; i < dst_unit.m_mesh.m_vertices.size(); ++i) {
-                auto& dst_vert = dst_unit.m_mesh.m_vertices[i];
-                auto& src_vert = src_unit.m_mesh.m_vertices[i];
+            for (const auto index : src_unit.m_mesh.m_indices) {
+                auto& dst_vert = dst_unit.m_mesh.m_vertices.emplace_back();
+                auto& src_vert = src_unit.m_mesh.m_vertices[index];
 
                 dst_vert.m_position = src_vert.m_position;
                 dst_vert.m_normal = src_vert.m_normal;
