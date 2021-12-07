@@ -282,27 +282,22 @@ int main(int argc, char* args[]) {
 
         glm::vec3 move_direction{ 0, 0, 0 };
         {
-            const Uint8* states = SDL_GetKeyboardState(NULL);
+            auto states = SDL_GetKeyboardState(nullptr);
 
-            if (states[SDL_SCANCODE_A]) {
+            if (states[SDL_SCANCODE_A])
                 move_direction.x -= 1;
-            }
-            if (states[SDL_SCANCODE_D]) {
+            if (states[SDL_SCANCODE_D])
                 move_direction.x += 1;
-            }
-            if (states[SDL_SCANCODE_W]) {
+            if (states[SDL_SCANCODE_W])
                 move_direction.z -= 1;
-            }
-            if (states[SDL_SCANCODE_S]) {
+            if (states[SDL_SCANCODE_S])
                 move_direction.z += 1;
-            }
 
-            if (states[SDL_SCANCODE_SPACE]) {
+            if (states[SDL_SCANCODE_SPACE])
                 move_direction.y += 1;
-            }
-            if (states[SDL_SCANCODE_LCTRL]) {
+            if (states[SDL_SCANCODE_LCTRL])
                 move_direction.y -= 1;
-            }
+
         }
 
         constexpr float MOVE_SPEED = 2;
