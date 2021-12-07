@@ -18,13 +18,9 @@ FetchContent_Declare(
 )
 
 FetchContent_Declare(
-    fetch_glfw
-    GIT_REPOSITORY https://github.com/glfw/glfw
-)
-
-FetchContent_Declare(
-    fetch_glad
-    GIT_REPOSITORY https://github.com/Dav1dde/glad
+    fetch_sdl2
+    GIT_REPOSITORY https://github.com/SDL-mirror/SDL.git
+    GIT_TAG        release-2.0.10
 )
 
 FetchContent_Declare(
@@ -35,8 +31,7 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(fetch_stb)
 FetchContent_MakeAvailable(fetch_glm)
-FetchContent_MakeAvailable(fetch_glfw)
-FetchContent_MakeAvailable(fetch_glad)
+FetchContent_MakeAvailable(fetch_sdl2)
 FetchContent_MakeAvailable(fetch_daltools)
 
 
