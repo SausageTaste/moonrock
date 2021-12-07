@@ -297,7 +297,6 @@ int main(int argc, char* args[]) {
                 move_direction.y += 1;
             if (states[SDL_SCANCODE_LCTRL])
                 move_direction.y -= 1;
-
         }
 
         constexpr float MOVE_SPEED = 2;
