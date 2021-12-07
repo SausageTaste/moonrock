@@ -82,10 +82,12 @@ namespace moonrock {
         Rasterizer m_rasterizer;
 
     public:
-        void draw(const VertexBuffer<VertexStatic>& vert_buf, const ImageUint2D& albedo_map, Framebuffer& output);
-
-    private:
-        static glm::vec4 transform_vertex(const glm::vec3& v, const float seed);
+        void draw(
+            const glm::mat4& transform_mat,
+            const VertexBuffer<VertexStatic>& vert_buf,
+            const ImageUint2D& albedo_map,
+            Framebuffer& output
+        );
 
     };
 

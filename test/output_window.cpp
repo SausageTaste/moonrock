@@ -5,6 +5,7 @@
 #include <SDL.h>
 
 #include <moonrock/moonrock.h>
+#include <moonrock/actor.h>
 #include <moonrock/utils.h>
 
 
@@ -109,6 +110,29 @@ namespace {
             return this->m_surface;
         }
 
+        void flip() {
+            SDL_LockSurface(this->m_surface);
+
+            int pitch = this->m_surface->pitch; // row size
+            char* temp = new char[pitch]; // intermediate buffer
+            char* pixels = (char*) this->m_surface->pixels;
+
+            for(int i = 0; i < this->m_surface->h / 2; ++i) {
+                // get pointers to the two rows to swap
+                char* row1 = pixels + i * pitch;
+                char* row2 = pixels + (this->m_surface->h - i - 1) * pitch;
+
+                // swap rows
+                memcpy(temp, row1, pitch);
+                memcpy(row1, row2, pitch);
+                memcpy(row2, temp, pitch);
+            }
+
+            delete[] temp;
+
+            SDL_UnlockSurface(this->m_surface);
+        }
+
     };
 
 
@@ -198,6 +222,7 @@ namespace {
         moonrock::Framebuffer m_fbuf;
         moonrock::Shader m_shader;
 
+        moonrock::EulerCamera m_camera;
         moonrock::ModelStatic m_model;
         moonrock::ImageUint2D m_texture;
 
@@ -205,6 +230,8 @@ namespace {
         Renderer()
            : m_fbuf(512, 512)
         {
+            this->m_camera.pos() = glm::vec3{0, 3, 10};
+
             const auto resource_path = moonrock::find_parent_folder_containing_folder_named("resource") + "/resource";
             const auto model_buffer = load_from_disk<std::vector<uint8_t>>(resource_path + "/Character Running.dmd");
             if (!moonrock::build_model_from_dmd(model_buffer.data(), model_buffer.size(), this->m_model)) {
@@ -215,9 +242,21 @@ namespace {
         }
 
         void render() {
+            const auto seed = static_cast<float>(moonrock::get_cur_sec());
+
+            const glm::mat4 identity{1};
+            const auto model_mat = glm::rotate(identity, glm::radians<float>(seed * 10), glm::vec3{0, 1, 0});
+            const auto view_mat = this->m_camera.make_view_mat();
+            const auto proj_mat = glm::perspective<float>(glm::radians(90.f), 1.f, 0.1f, 100.f);
+
             this->m_fbuf.m_color_buffer.fill(moonrock::Pixel4Uint8(0, 0, 0, 1));
             this->m_fbuf.m_depth_map.fill(moonrock::Pixel1Float32{1});
-            this->m_shader.draw(this->m_model.m_units.front().m_mesh, this->m_texture, this->m_fbuf);
+            this->m_shader.draw(
+                proj_mat * view_mat * model_mat,
+                this->m_model.m_units.front().m_mesh,
+                this->m_texture,
+                this->m_fbuf
+            );
         }
 
     };
@@ -227,8 +266,13 @@ namespace {
 
 int main(int argc, char* args[]) {
     ::WindowSDL window{ "Output Display", 800, 800 };
+    ::Renderer renderer;
+    ::moonrock::Timer timer;
 
     while (true) {
+        const auto delta_time = timer.check_get_elapsed();
+        const auto delta_time_f = static_cast<float>(delta_time);
+
         SDL_Event e;
         while (::poll_event_sdl(e)) {
             if (SDL_QUIT == e.type) {
@@ -236,7 +280,35 @@ int main(int argc, char* args[]) {
             }
         }
 
-        ::Renderer renderer;
+        glm::vec3 move_direction{ 0, 0, 0 };
+        {
+            const Uint8* states = SDL_GetKeyboardState(NULL);
+
+            if (states[SDL_SCANCODE_A]) {
+                move_direction.x -= 1;
+            }
+            if (states[SDL_SCANCODE_D]) {
+                move_direction.x += 1;
+            }
+            if (states[SDL_SCANCODE_W]) {
+                move_direction.z -= 1;
+            }
+            if (states[SDL_SCANCODE_S]) {
+                move_direction.z += 1;
+            }
+
+            if (states[SDL_SCANCODE_SPACE]) {
+                move_direction.y += 1;
+            }
+            if (states[SDL_SCANCODE_LCTRL]) {
+                move_direction.y -= 1;
+            }
+        }
+
+        constexpr float MOVE_SPEED = 2;
+        renderer.m_camera.move_forward(glm::vec3{move_direction.x, 0, move_direction.z} * delta_time_f * MOVE_SPEED);
+        renderer.m_camera.pos().y += MOVE_SPEED * move_direction.y * delta_time_f;
+
         renderer.render();
 
         ::TextureSDL texture;
@@ -245,6 +317,7 @@ int main(int argc, char* args[]) {
             renderer.m_fbuf.m_color_buffer.width(),
             renderer.m_fbuf.m_color_buffer.height()
         );
+        texture.flip();
 
         SDL_Rect rect{};
         rect.w = window.width();

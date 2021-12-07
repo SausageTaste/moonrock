@@ -5,6 +5,7 @@ add_library(moonrock
     mesh.h                      mesh.cpp
     utils.h                     utils.cpp
     image.h                     image.cpp
+    actor.h                     actor.cpp
 )
 
 target_compile_features(moonrock PUBLIC cxx_std_17)

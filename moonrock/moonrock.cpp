@@ -50,6 +50,16 @@ namespace {
         return output;
     }
 
+    glm::vec4 transform_vertex(const glm::vec3& v, const glm::mat4& mat) {
+        auto transformed = mat * glm::vec4{v, 1};
+        transformed.w = 1.f / transformed.w;
+        transformed.x *= transformed.w;
+        transformed.y *= transformed.w;
+        transformed.z *= transformed.w;
+
+        return transformed;
+    }
+
 }
 
 
@@ -212,8 +222,12 @@ namespace moonrock {
 // Shader
 namespace moonrock {
 
-    void Shader::draw(const VertexBuffer<VertexStatic>& vert_buf, const ImageUint2D& albedo_map, Framebuffer& output) {
-        const auto cur_sec = static_cast<float>(get_cur_sec());
+    void Shader::draw(
+        const glm::mat4& transform_mat,
+        const VertexBuffer<VertexStatic>& vert_buf,
+        const ImageUint2D& albedo_map,
+        Framebuffer& output
+    ) {
         const auto half_width = output.width() * 0.5;
         const auto half_height = output.height() * 0.5;
         Rasterizer::result_list_t rasterized;
@@ -226,9 +240,9 @@ namespace moonrock {
             const auto p1 = vert_buf.m_vertices[3 * i + 1];
             const auto p2 = vert_buf.m_vertices[3 * i + 2];
 
-            const auto v0 = this->transform_vertex(p0.m_position, cur_sec);
-            const auto v1 = this->transform_vertex(p1.m_position, cur_sec);
-            const auto v2 = this->transform_vertex(p2.m_position, cur_sec);
+            const auto v0 = ::transform_vertex(p0.m_position, transform_mat);
+            const auto v1 = ::transform_vertex(p1.m_position, transform_mat);
+            const auto v2 = ::transform_vertex(p2.m_position, transform_mat);
 
             this->m_rasterizer.m_vertices[0] = glm::vec2{ (v0.x * half_width + half_width), (v0.y * half_height + half_height) };
             this->m_rasterizer.m_vertices[1] = glm::vec2{ (v1.x * half_width + half_width), (v1.y * half_height + half_height) };
@@ -248,21 +262,6 @@ namespace moonrock {
                 }
             }
         }
-    }
-
-    glm::vec4 Shader::transform_vertex(const glm::vec3& v, const float seed) {
-        const glm::mat4 identity{1};
-        const auto model_mat = glm::rotate(identity, glm::radians<float>(seed * 10), glm::vec3{0, 1, 0});
-        const auto view_mat = glm::translate(identity, glm::vec3{0, 0, -3});
-        const auto proj_mat = glm::perspective<float>(glm::radians(90.f), 1.f, 0.1f, 100.f);
-
-        auto transformed = proj_mat * view_mat * model_mat * glm::vec4{v, 1};
-        transformed.w = 1.f / transformed.w;
-        transformed.x *= transformed.w;
-        transformed.y *= transformed.w;
-        transformed.z *= transformed.w;
-
-        return transformed;
     }
 
 }
