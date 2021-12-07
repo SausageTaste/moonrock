@@ -202,6 +202,10 @@ namespace moonrock {
             return glm::vec2{ this->width(), this->height() };
         }
 
+        auto data() {
+            return this->m_data.data();
+        }
+
         auto data() const {
             return this->m_data.data();
         }
