@@ -148,6 +148,9 @@ namespace moonrock {
         min.x = std::max<float>(min.x, 0);
         min.y = std::max<float>(min.y, 0);
 
+        max.x = std::max<float>(max.x, 0);
+        max.y = std::max<float>(max.y, 0);
+
         max.x = std::min<float>(max.x, static_cast<float>(this->m_domain_width));
         max.y = std::min<float>(max.y, static_cast<float>(this->m_domain_height));
 
