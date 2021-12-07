@@ -211,7 +211,7 @@ namespace {
                 throw std::runtime_error{ "Failed to build model" };
             }
 
-            this->m_texture = load_image_from_disk("C:\\Users\\woos8\\Downloads\\albedo_map.bmp");
+            this->m_texture = load_image_from_disk(resource_path + "/Character Running.png");
         }
 
         void render() {
@@ -226,7 +226,7 @@ namespace {
 
 
 int main(int argc, char* args[]) {
-    ::WindowSDL window{ "Output Display", 800, 450 };
+    ::WindowSDL window{ "Output Display", 800, 800 };
 
     while (true) {
         SDL_Event e;
