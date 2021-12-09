@@ -11,7 +11,6 @@
 #include <stb_image.h>
 #include <stb_image_write.h>
 
-
 #include "utils.h"
 #include "math_tool.h"
 
@@ -69,6 +68,9 @@ namespace moonrock {
     void Rasterizer::work(result_list_t& output) const {
         output.clear();
 
+        if (!this->is_ccw())
+            return;
+
         const std::array<glm::vec2, 3> edges{
             this->m_vertices[1] - this->m_vertices[0],
             this->m_vertices[2] - this->m_vertices[1],
@@ -85,7 +87,6 @@ namespace moonrock {
             rotate_vec2_ccw_90(edges_normalized[0]),
             rotate_vec2_ccw_90(edges_normalized[1]),
             rotate_vec2_ccw_90(edges_normalized[2]),
-
         };
 
         std::vector<std::pair<glm::vec2, glm::vec2>> left_edges;
@@ -137,6 +138,14 @@ namespace moonrock {
         result_list_t output;
         this->work(output);
         return output;
+    }
+
+    bool Rasterizer::is_ccw() const {
+        const auto e1 = this->m_vertices[1] - this->m_vertices[0];
+        const auto e2 = this->m_vertices[2] - this->m_vertices[0];
+
+        const auto c = e1.x * e2.y - e1.y * e2.x;
+        return c > 0.f;
     }
 
     // Private

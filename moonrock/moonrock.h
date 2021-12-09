@@ -63,6 +63,8 @@ namespace moonrock {
 
         result_list_t work() const;
 
+        bool is_ccw() const;
+
     private:
         std::pair<glm::uvec2, glm::uvec2> make_min_max() const;
 
