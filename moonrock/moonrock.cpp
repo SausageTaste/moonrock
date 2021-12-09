@@ -68,9 +68,6 @@ namespace moonrock {
     void Rasterizer::work(result_list_t& output) const {
         output.clear();
 
-        if (!this->is_ccw())
-            return;
-
         const std::array<glm::vec2, 3> edges{
             this->m_vertices[1] - this->m_vertices[0],
             this->m_vertices[2] - this->m_vertices[1],
@@ -258,17 +255,21 @@ namespace moonrock {
             this->m_rasterizer.m_vertices[2] = glm::vec2{ (v2.x * half_width + half_width), (v2.y * half_height + half_height) };
             this->m_rasterizer.work(rasterized);
 
+            if (!this->m_rasterizer.is_ccw())
+                continue;
+
             for (const auto& v : rasterized) {
                 const auto barycentric_perspective = ::correct_barycentric_coords_perspective(v.m_barycentric_coords, v0.w, v1.w, v2.w);
                 const auto current_depth = 1.f / interpolate_barycentric(1.f / v0.z, 1.f / v1.z, 1.f / v2.z, v.m_barycentric_coords);
                 auto& depth_pixel = output.m_depth_map.pixel(v.m_coord);
 
-                if (current_depth < depth_pixel.color()) {
-                    const auto current_uv_coord = interpolate_barycentric(p0.m_uv_coord, p1.m_uv_coord, p2.m_uv_coord, barycentric_perspective);
-                    const auto current_albedo = albedo_map.sample_bilinear(current_uv_coord);
-                    output.m_color_buffer.pixel(v.m_coord).set_color_xyzw(current_albedo);
-                    depth_pixel = current_depth;
-                }
+                if (current_depth >= depth_pixel.color())
+                    continue;
+
+                const auto current_uv_coord = interpolate_barycentric(p0.m_uv_coord, p1.m_uv_coord, p2.m_uv_coord, barycentric_perspective);
+                const auto current_albedo = albedo_map.sample_bilinear(current_uv_coord);
+                output.m_color_buffer.pixel(v.m_coord).set_color_xyzw(current_albedo);
+                depth_pixel = current_depth;
             }
         }
     }
