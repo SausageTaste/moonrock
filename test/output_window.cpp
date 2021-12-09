@@ -281,8 +281,9 @@ int main(int argc, char* args[]) {
         }
 
         glm::vec3 move_direction{ 0, 0, 0 };
+        glm::vec3 view_direction{ 0, 0, 0 };
         {
-            auto states = SDL_GetKeyboardState(nullptr);
+            const auto states = SDL_GetKeyboardState(nullptr);
 
             if (states[SDL_SCANCODE_A])
                 move_direction.x -= 1;
@@ -293,6 +294,15 @@ int main(int argc, char* args[]) {
             if (states[SDL_SCANCODE_S])
                 move_direction.z += 1;
 
+            if (states[SDL_SCANCODE_UP])
+                view_direction.x += 1;
+            if (states[SDL_SCANCODE_DOWN])
+                view_direction.x -= 1;
+            if (states[SDL_SCANCODE_LEFT])
+                view_direction.y += 1;
+            if (states[SDL_SCANCODE_RIGHT])
+                view_direction.y -= 1;
+
             if (states[SDL_SCANCODE_SPACE])
                 move_direction.y += 1;
             if (states[SDL_SCANCODE_LCTRL])
@@ -302,6 +312,7 @@ int main(int argc, char* args[]) {
         constexpr float MOVE_SPEED = 2;
         renderer.m_camera.move_forward(glm::vec3{move_direction.x, 0, move_direction.z} * delta_time_f * MOVE_SPEED);
         renderer.m_camera.pos().y += MOVE_SPEED * move_direction.y * delta_time_f;
+        renderer.m_camera.add_rot_xyz(view_direction * delta_time_f);
 
         renderer.render();
 
