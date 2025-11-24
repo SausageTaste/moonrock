@@ -1,0 +1,8 @@
+{
+    "dependencies": [
+        "glm",
+        "sdl3",
+        "spdlog"
+    ],
+    "builtin-baseline": "c941d5e450738629213a60ab8911fd26efca7c6e"
+}
