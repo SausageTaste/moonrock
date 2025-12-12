@@ -13,6 +13,7 @@ file(GLOB_RECURSE private_headers CONFIGURE_DEPENDS
 
 add_executable(${target_name})
 set_target_properties(${target_name} PROPERTIES FOLDER "moonrock/examples")
+target_compile_features(${target_name} PRIVATE cxx_std_20)
 
 target_sources(${target_name}
     PUBLIC
