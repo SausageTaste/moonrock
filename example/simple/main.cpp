@@ -168,7 +168,15 @@ namespace {
             window_.present_texture(fbuf_.get());
         }
 
+        void on_resize(int width, int height) {
+            fbuf_ = window_.create_fbuf(width, height);
+        }
+
         SDL_AppResult proc_event(const SDL_Event& e) {
+            if (e.type == SDL_EVENT_WINDOW_RESIZED) {
+                this->on_resize(e.window.data1, e.window.data2);
+            }
+
             return SDL_AppResult::SDL_APP_CONTINUE;
         }
 
