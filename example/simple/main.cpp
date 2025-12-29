@@ -176,30 +176,29 @@ namespace {
         CombinedEngine() : window_(1280, 720) {
             system("chcp 65001");
             fbuf_ = window_.create_fbuf(1280, 720);
+            present_.alloc(fbuf_.width(), fbuf_.height());
         }
 
         void do_frame() {
             const auto t = SDL_GetTicksNS() / 1'000'000'000.0;  // seconds
 
-            PresentationImage present;
-            present.alloc(fbuf_.width(), fbuf_.height());
-
-            for (size_t x = 0; x < present.x_size(); ++x) {
-                for (size_t y = 0; y < present.y_size(); ++y) {
+            for (size_t x = 0; x < present_.x_size(); ++x) {
+                for (size_t y = 0; y < present_.y_size(); ++y) {
                     const auto r = x * 255.0 / fbuf_.width();
                     const auto g = y * 255.0 / fbuf_.height();
                     const auto b = std::cos(t) * 127 + 128;
                     const auto a = 255;
-                    present.set_pixel(x, y, r, g, b, a);
+                    present_.set_pixel(x, y, r, g, b, a);
                 }
             }
 
-            present.copy(fbuf_);
+            present_.copy(fbuf_);
             window_.present_texture(fbuf_.get());
         }
 
         void on_resize(int width, int height) {
             fbuf_ = window_.create_fbuf(width, height);
+            present_.alloc(fbuf_.width(), fbuf_.height());
         }
 
         SDL_AppResult proc_event(const SDL_Event& e) {
@@ -213,6 +212,7 @@ namespace {
     private:
         WindowSDL window_;
         FramebufferSDL fbuf_;
+        PresentationImage present_;
         moonrock::Renderer renderer_;
     };
 
