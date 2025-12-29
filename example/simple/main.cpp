@@ -125,6 +125,51 @@ namespace {
     };
 
 
+    class PresentationImage {
+
+    public:
+        void alloc(size_t width, size_t height) {
+            width_ = width;
+            height_ = height;
+            data_.resize(width_ * height_);
+        }
+
+        void set_pixel(
+            size_t x, size_t y, uint8_t r, uint8_t g, uint8_t b, uint8_t a
+        ) {
+            data_[y * width_ + x] = (a << 24) | (r << 16) | (g << 8) | b;
+        }
+
+        size_t x_size() const { return width_; }
+        size_t y_size() const { return height_; }
+
+        void copy(FramebufferSDL& output) const {
+            const auto [pixels, pitch] = output.lock();
+            if (pixels == nullptr)
+                return;
+
+            const auto row_size = output.width() * 4;
+            for (int y = 0; y < output.height(); ++y) {
+                const auto src_row = this->get_row(y);
+                const auto dst_row = reinterpret_cast<uint8_t*>(pixels) +
+                                     y * pitch;
+                std::memcpy(dst_row, src_row, row_size);
+            }
+
+            output.unlock();
+        }
+
+    private:
+        const uint8_t* get_row(size_t y) const {
+            return reinterpret_cast<const uint8_t*>(&data_[y * width_]);
+        }
+
+        std::vector<uint32_t> data_;
+        size_t width_ = 0;
+        size_t height_ = 0;
+    };
+
+
     class CombinedEngine {
 
     public:
@@ -136,35 +181,20 @@ namespace {
         void do_frame() {
             const auto t = SDL_GetTicksNS() / 1'000'000'000.0;  // seconds
 
-            std::vector<uint8_t> fbuf;
-            const auto texel_count = fbuf_.width() * fbuf_.height();
-            fbuf.resize(texel_count * 4);
-            const auto texels = reinterpret_cast<uint32_t*>(fbuf.data());
+            PresentationImage present;
+            present.alloc(fbuf_.width(), fbuf_.height());
 
-            for (size_t i = 0; i < texel_count; ++i) {
-                const auto x = i % fbuf_.width();
-                const auto y = i / fbuf_.width();
-
-                const uint8_t r = x * 255 / fbuf_.width();
-                const uint8_t g = y * 255 / fbuf_.height();
-                const uint8_t b = std::cos(t) * 127 + 128;
-                const uint8_t a = 255;
-
-                texels[i] = (a << 24) | (r << 16) | (g << 8) | b;
+            for (size_t x = 0; x < present.x_size(); ++x) {
+                for (size_t y = 0; y < present.y_size(); ++y) {
+                    const auto r = x * 255.0 / fbuf_.width();
+                    const auto g = y * 255.0 / fbuf_.height();
+                    const auto b = std::cos(t) * 127 + 128;
+                    const auto a = 255;
+                    present.set_pixel(x, y, r, g, b, a);
+                }
             }
 
-            const auto [pixels, pitch] = fbuf_.lock();
-            if (pixels == nullptr)
-                return;
-
-            const auto row_size = fbuf_.width() * 4;
-            for (int y = 0; y < fbuf_.height(); ++y) {
-                const auto src_row = &fbuf[y * row_size];
-                const auto dst_row = reinterpret_cast<uint8_t*>(pixels) +
-                                     y * pitch;
-                std::memcpy(dst_row, src_row, row_size);
-            }
-            fbuf_.unlock();
+            present.copy(fbuf_);
             window_.present_texture(fbuf_.get());
         }
 
