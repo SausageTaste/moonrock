@@ -10,6 +10,8 @@ project(moonrock
 )
 
 
+add_subdirectory(submodules/dalbaragi)
+
 find_package(glm CONFIG REQUIRED)
 find_package(SDL3 CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)

@@ -1,0 +1,3 @@
+[submodule "submodules/dalbaragi"]
+	path = submodules/dalbaragi
+	url = https://github.com/SausageTaste/dalbaragi
